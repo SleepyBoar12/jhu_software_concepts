@@ -1,5 +1,0 @@
-These are the requirements for running the web application.
-
-1. I
-2. Python 3.14.0
-2. 
