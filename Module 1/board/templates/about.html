@@ -1,6 +1,30 @@
 {% extends "base.html" %}
-{% block title %}About{% endblock %}
+{% block title %}About Me{% endblock %}
 {% block content %}
-    <h1>About</h1>
-    <p>Add information about your site here.</p>
+<div class="home-layout">
+    <section class="content-card">
+    <!-- below is the right side of the webpage-->
+    <section class="bio">
+        <h1>About Me </h1>
+        <p>
+            I am Burmese-Korean mostly based in Hong Kong but I bounce around South Korea, Myanmar, Thailand, and Vietnam a lot. I received my high school diploma from UWCSEA in Singapore but studied at NYU for my bachelor’s in Econometrics & Quantitative Economics with accompanying minors in Philosophy and Math in 2021. I planned to return to Asia back right after my bachelor’s but an erupting civil war in Myanmar and COVID restrictions changed my plans.
+        </p>
+
+        <p>
+            Fortunately, I received an internship with Global Thinking Foundation USA which later turned into a job until 2022 when the parent company in Italy faced sudden fiscal constraints due to Russo-Ukraine War and subsequently dissolved its US branch. Afterwards, I received an internship with The Conference Board which unfortunately fell apart due to USCIS taking longer than anticipated to process and deliver my work status. Finally, I landed a job at SIFMA with their research department where I worked until 2024. Sensing the winds change, I quit early to relocate back to Asia.
+        </p>
+
+        <P>
+            A year later, I received and confirmed my Korean citizenship and renunciated my Burmese citizenship while working in Vietnam. In early 2026, I started revising math again and started learning how to code; I would like to recreate/showcase similar types of things I have worked on back in the US on this website some day :)
+        </P>
+
+        <p>
+            In my free time, I am either studying Korean, Chinese, working out, or working through a massive backlog of books that is spilling out of my bookshelf. My myriad of hobbies depend strongly upon the seasons and proximity, ranging from amateur botany, soup making, puzzle solving, to Muay Thai (Lethwei as well!).
+        </p>
+    </section>
+    </section>
+    <!-- below is the left side of the webpage-->
+    <img class="profile-photo" src="{{ url_for('static', filename='images/pic2.jpeg') }}" alt="Photo of Me2">
+    
+</div>
 {% endblock %}
