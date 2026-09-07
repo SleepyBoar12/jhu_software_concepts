@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<div class="home-layout">
+    <section class="content-card">
+    <section class="bio">
+    <h1>Homepage</h1>
+        <p>Hello all!</p>
+        <p>
+            My name is Geunyong Son (Korean) and Aung Myin (Burmese) but I also go by Dan, I am doing a part-time MS in Data Science at Johns Hopkins University. I used to work in economic and financial research in the US straight out of college for a couple of years but have relocated back to Asia and right now, I am based in Hong Kong from 2026 to 2028 until the foreseeable future. I am working as a garment salesman but I would like to pivot to more data aligned roles in finance and manufacturing across Asia.
+        </p>
+
+        <p>
+            A common theme across all the jobs I've had was sifting through a lot of descriptive data collected from vendors and cleaning said data, mostly specialized for the process in the financial pipeline. A couple of notable projects I’ve worked on were the Financial Abuse Report from Global Thinking Foundation USA and the 2023 Capital Market FactBook at SIFMA. Now I'd like to try my hands at inferential statistics!
+        </p>
+
+        <p>
+            I also tutor math and writing to high school and early college aged students in my spare time and help with college admissions process, specifically for the US system. For my non-professional bio, please refer to <a href="{{ url_for('pages.about') }}">about</a>!
+        </p>
+    </section>
+    </section>
+    <img class="profile-photo" src="{{ url_for('static', filename='images/pic1.jpeg') }}" alt="Photo of Me">
+    
+</div>
+    {% endblock %}
