@@ -1,0 +1,35 @@
+HTML of www.thegradcafe.com
+
+The structure of 1 person's response is represented like this in HTML:
+
+EXAMPLE ROW
+
+{
+&quot;id&quot;:1020478,
+&quot;school&quot;:&quot;Randolph College&quot;,
+&quot;program&quot;:&quot;Creative Writing Fiction&quot;,
+&quot;level&quot;:&quot;MFA&quot;,
+&quot;how&quot;:&quot;E-mail&quot;,
+&quot;decision&quot;:&quot;Accepted&quot;,
+&quot;date_of_notification&quot;:&quot;2026-09-08T00:00:00.000000Z&quot;,
+&quot;created_at&quot;:&quot;2026-09-08&quot;,
+&quot;notes&quot;:null,
+&quot;status&quot;:&quot;American&quot;,
+&quot;season&quot;:&quot;Fall 2026&quot;,
+&quot;ugpa&quot;:null,
+&quot;greq&quot;:null,
+&quot;grev&quot;:null,
+&quot;grew&quot;:null,
+&quot;gres&quot;:null,
+&quot;added_on_label&quot;:&quot;Sep 08, 2026&quot;,
+&quot;decision_label&quot;:&quot;Accepted on Sep 08&quot;,
+&quot;acceptedDate&quot;:&quot;2026-09-08&quot;,
+&quot;rejectedDate&quot;:null,
+&quot;waitlistedDate&quot;:null,
+&quot;interviewDate&quot;:null,
+&quot;school_id&quot;:4286,
+&quot;program_id&quot;:223,
+&quot;degree_type_id&quot;:3,
+&quot;is_owner&quot;:false
+}
+
