@@ -1,0 +1,13 @@
+Python 3.14 or later
+urllib
+re
+json
+Path
+
+For scrape.py
+Selenium 4.49.0
+urllib3 2.7.0
+certifi 2026.7.22
+
+For cleaner.py
+beautifulsoup4 4.15.0

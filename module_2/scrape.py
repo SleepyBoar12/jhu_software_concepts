@@ -7,49 +7,32 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from pathlib import Path
-import argparse
-import subprocess
-import sys
-import time
 
 """
 This program is designed to access (www.thegradcafe.com) and going to
 (Admissions) tab to collect grad school entries made by the community:
 
-1. I'm going to use Selenium's WebDriver to webscrape to get the HTML page by
-page from the website. I am going to do it concurrently. 
+1. First of all, I am going to check if the website allows for scraping by checking
+its /robots.txt file to look for its policy on "User-Agent". If scraping is allowed,
+the program will print out that it is okay to do it, this will be done by Python's urllib
 
-2. I'm going to use BeautifulSoup alongside Regex to gather get the inputs from
-those HTML files
+2. After permission, I'm going to use Selenium's WebDriver to webscrape to get
+the HTML page by page from the website using the Chrome browser to enter and view
+the webpages. Because I don't want the scraping to take a long time, I am going to download
+raw HTML of the pages in its entirety into my folder.
 
-3. Once the data is collected, I am going to aggregate the data into a json
-object.
+3. Once data is gathered, "clean.py" will go through the HTML in "collected" folder
+to produce the JSON file.
 """
 
-#    # Argparse to create workers to do the scraping
-#    cli= argparse.ArgumentParser()
-#    cli.add_argument("--worker", action= "store_true")
-#    cli.add_argument("--start-url")
-#    cli.add_argument("--pages", type= int, default= 5)
-#    cli.add_argument("--output-dir", type= Path)
-#    args= cli.parse_args()
-#
-#    if args.pages < 1:
-#        cli.error("--pages must be at least 1")
-#
-#    # Start 3 copies working on 3 different parts of the time, I picked the earliest date thegradcafe has to now.
-#    if not args.worker:
-#        start_urls = [
-#            "https://www.thegradcafe.com/survey?added_start=2020-01-01&added_end=2025-12-31",
-#            "https://www.thegradcafe.com/survey?added_start=2013-01-01&added_end=2019-12-31",
-#            "https://www.thegradcafe.com/survey?added_start=2006-01-01&added_end=2012-12-31"        
-#        ]
-
 ### Creating webscraper-- ALL PARAMS WRITTEN HERE
-user_agent="scrape_respectfully"
-url="https://www.thegradcafe.com"
-num = 3000 # number of pages to scrape
-
+user_agent = "scrape_respectfully"
+url = "https://www.thegradcafe.com"
+route = "/survey"
+num = 5 # number of pages to scrape
+# Write "test" or "collected" depending on where in the module_2 folder you
+# want files to go
+location = "test"
 
 # Configurations
 options = webdriver.ChromeOptions()
@@ -81,73 +64,80 @@ if response.status != 200:
 # Compliance with website permission
 robots_txt = response.data.decode("utf-8", errors="replace")
 
+# Yes for user agent and for the purpose of "search"
 parser = RobotFileParser(robots_url)
 parser.parse(robots_txt.splitlines())
-allow = parser.can_fetch(user_agent, url)
+allow = parser.can_fetch(user_agent, url) 
 
 if not allow:
     print("Not allowed to scrape website")
 else:
     print("website allowed to scrape!")
 
-# Creating a survey page URL for scraping
+# Creating a web browser and going into the "survey" section of the website
 cdriver= webdriver.Chrome(options=options)
-survey_url= urljoin(url, "/survey")
+survey_url= urljoin(url, route)
 
 ### Scraping algorithm
-try:
-    cdriver.get(survey_url)
+def scrape_data(cdriver: webdriver, survey_url: str, num: int):
     pages_copied = 0
+    try:
+        cdriver.get(survey_url)
 
-    # Scrape pages until reaching that number
-    while pages_copied < num:
+        # Scrape pages until reaching that number
+        while pages_copied < num:
+            WebDriverWait(cdriver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+
+            # Select page source and write them into "module_2/collected/data.html"
+            html = cdriver.page_source
+
+            # Folder where the data will go using Path to navigate folder within "module_2"
+            # I am using (__file__) -> parent -> folder because it breaks often (I don't know why)
+            # if I wrote the location in the Path("...") directly
+            folder = Path(__file__).resolve().parent/location
+            if folder.exists() == False:
+                print("output directory isn't linked or doesn't exist")
+            output_path = folder / f"data_{pages_copied + 1}.html"
+            output_path.write_text(html, encoding="utf-8")
+
+            pages_copied = pages_copied + 1
+            # To break the while loop once the number reaches 5
+            if pages_copied == num:
+                break
+
+            # result successions
+            result_locator = (By.CSS_SELECTOR,'a[href^="/result/"]',)
+            prev_result_url = cdriver.find_element(*result_locator).get_attribute("href")
+
+            # Go to the next page (problem: there are ads that block the button)
+            # (Going to jump to the next url directly with WebDriver)
+            next_link = WebDriverWait(cdriver, 10).until(
+                EC.element_to_be_clickable((By.LINK_TEXT, "Next"))
+            )
+            # See URL destination URL first
+            next_url = next_link.get_attribute("href")
+
+            if not next_url:
+                raise RuntimeError("next_link has no destination URL (check internet connection?)")
             
-        # Gathering, wait until "html body" is available
-        pages_copied = pages_copied + 1
+            # Jumping to the next URL
+            cdriver.get(next_url)
 
-        WebDriverWait(cdriver, 10).until(
-            EC.presence_of_element_located((By.TAG_NAME, "body"))
-        )
+            # Wait until different page
+            WebDriverWait(cdriver, 10).until(lambda driver: driver.find_element(
+            *result_locator).get_attribute("href") != prev_result_url)
 
-        # Select page source and write them into "module_2/collected/data.html"
-        html = cdriver.page_source
 
-        # Folder where the data will go
-        folder = Path(__file__).resolve().parent / "collected"
-        output_path = folder / f"data_{pages_copied}.html"
-        output_path.write_text(html, encoding="utf-8")
-
-        # To break the while loop once the number reaches 5
-        if pages_copied == num:
-            break
-
-        # result successions
-        result_locator = (By.CSS_SELECTOR,'a[href^="/result/"]',)
-        prev_result_url = cdriver.find_element(*result_locator).get_attribute("href")
-
-        # Go to the next page (problem: there are ads that block the button)
-        # (Going to jump to the next url directly with WebDriver)
-        next_link = WebDriverWait(cdriver, 10).until(
-            EC.element_to_be_clickable((By.LINK_TEXT, "Next"))
-        )
-        # See URL destination URL first
-        next_url = next_link.get_attribute("href")
-
-        if not next_url:
-            raise RuntimeError("next_link has no destination URL")
+    # Error
+    except Exception as error:
+        print(f"webscraping error, scraping algorithm broke, HTTPS: {error}")
         
-        # Jumping to the next URL
-        cdriver.get(next_url)
+    ### Terminating scraper
+    finally:
+        cdriver.quit()
+    return print(f"scraping terminated, pull {pages_copied} pages")
 
-        # Wait until different page
-        WebDriverWait(cdriver, 10).until(lambda driver: driver.find_element(
-        *result_locator).get_attribute("href") != prev_result_url)
-
-
-# Error
-except Exception as error:
-    print(f"webscraping error, scraping algorithm broke, HTTPS: {error}")
-     
-### Terminating scraper
-finally:
-    cdriver.quit()
+if __name__ == "__main__":
+    scrape_data(cdriver, survey_url, num)
