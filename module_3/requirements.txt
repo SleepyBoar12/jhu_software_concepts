@@ -1,0 +1,6 @@
+Python 3.14
+SQLAlchemy 25.2
+Psycopg 3.3.6
+Psycopg-pool 3.3.2
+Psycopg-binary 3.3.6
+Flask 3.1.3

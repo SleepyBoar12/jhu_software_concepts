@@ -1,0 +1,13 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example.
+.pgpass
+.pg_service.conf
+#python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+#editors and macOS
+.vscode/
