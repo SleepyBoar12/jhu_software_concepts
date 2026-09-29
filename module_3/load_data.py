@@ -251,8 +251,14 @@ ON CONFLICT (url) DO UPDATE SET
     gre_v = EXCLUDED.gre_v,
     gre_aw = EXCLUDED.gre_aw,
     degree = EXCLUDED.degree,
-    llm_generated_program = EXCLUDED.llm_generated_program,
-    llm_generated_university = EXCLUDED.llm_generated_university
+    llm_generated_program = COALESCE(
+        EXCLUDED.llm_generated_program,
+        applicants.llm_generated_program
+    ),
+    llm_generated_university = COALESCE(
+        EXCLUDED.llm_generated_university,
+        applicants.llm_generated_university
+    )
 WHERE ROW(
     applicants.program,
     applicants.comments,
@@ -279,14 +285,20 @@ WHERE ROW(
     EXCLUDED.gre_v,
     EXCLUDED.gre_aw,
     EXCLUDED.degree,
-    EXCLUDED.llm_generated_program,
-    EXCLUDED.llm_generated_university
+    COALESCE(
+        EXCLUDED.llm_generated_program,
+        applicants.llm_generated_program
+    ),
+    COALESCE(
+        EXCLUDED.llm_generated_university,
+        applicants.llm_generated_university
+    )
 );
 """
 
 
-def main():
-    """Connect to PostgreSQL and load every applicant in one transaction."""
+def load_records(records):
+    """Upsert prepared records and return a summary of database changes."""
     processed_rows = 0
     changed_rows = 0
 
@@ -300,8 +312,8 @@ def main():
     ) as connection:
         with connection.cursor() as cursor:
             cursor.execute(create_table_sql)
-
-            records = read_records(json_file)
+            cursor.execute("SELECT COUNT(*) FROM applicants")
+            total_rows_before = cursor.fetchone()[0]
 
             for batch in make_batches(records, batch_size):
                 cursor.executemany(upsert_sql, batch)
@@ -312,11 +324,37 @@ def main():
                     changed_rows += cursor.rowcount
 
             cursor.execute("SELECT COUNT(*) FROM applicants")
-            total_rows = cursor.fetchone()[0]
+            total_rows_after = cursor.fetchone()[0]
 
-    print(f"Processed {processed_rows} JSON records")
-    print(f"Inserted or updated {changed_rows} database records")
-    print(f"The applicants table contains {total_rows} records")
+    inserted_rows = max(total_rows_after - total_rows_before, 0)
+    updated_rows = max(changed_rows - inserted_rows, 0)
+    return {
+        "processed_rows": processed_rows,
+        "inserted_rows": inserted_rows,
+        "updated_rows": updated_rows,
+        "total_rows": total_rows_after,
+    }
+
+
+def load_cleaned_records(records):
+    """Validate cleaned dictionaries and upsert them into PostgreSQL."""
+
+    prepared_records = (
+        prepare_record(record, record_number)
+        for record_number, record in enumerate(records, start=1)
+    )
+    return load_records(prepared_records)
+
+
+def main():
+    """Load the saved LLM-extended JSON file into PostgreSQL."""
+
+    summary = load_records(read_records(json_file))
+
+    print(f"Processed {summary['processed_rows']} JSON records")
+    print(f"Inserted {summary['inserted_rows']} database records")
+    print(f"Updated {summary['updated_rows']} database records")
+    print(f"The applicants table contains {summary['total_rows']} records")
 
 
 if __name__ == "__main__":
