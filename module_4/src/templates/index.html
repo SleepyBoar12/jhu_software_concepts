@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Applicant Analysis</title>
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='styles.css') }}"
+    >
+</head>
+<body>
+    <header class="hero">
+        <nav class="navigation" aria-label="Page navigation">
+            <a class="brand" href="{{ url_for('index') }}">
+                Applicant Analysis
+            </a>
+            <span class="database-status">Live PostgreSQL data</span>
+        </nav>
+
+        <div class="hero-content">
+            <p class="eyebrow">PostgreSQL + SQLAlchemy + Flask</p>
+            <h1>Graduate admissions analysis</h1>
+            <p class="hero-copy">
+                Each answer is calculated from the current applicants table
+                when this page loads.
+            </p>
+
+            {% if generated_at %}
+                <p class="timestamp">
+                    Last refreshed
+                    <time datetime="{{ generated_at.isoformat() }}">
+                        {{ generated_at.strftime("%B %d, %Y at %I:%M:%S %p %Z") }}
+                    </time>
+                </p>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="page-shell">
+        <section class="pull-panel" aria-labelledby="data-controls-heading">
+            <div class="pull-copy">
+                <p class="eyebrow">Data controls</p>
+                <h2 id="data-controls-heading">Keep the analysis current</h2>
+                <p>
+                    <strong>Pull Data</strong> checks for new data on the
+                    GradCafe website for fresh applications and adds the
+                    records to the PostgreSQL database.
+                </p>
+                <p class="pull-note">
+                    It checks the five newest pages and avoids duplicate rows
+                    by using each application's unique GradCafe URL. The pull
+                    can take about a minute to finish. New rows are inserted
+                    immediately; LLM-based questions include them after the
+                    separate LLM enrichment step.
+                </p>
+                <p class="pull-note">
+                    <strong>Update Analysis</strong> runs all analysis queries
+                    again using the latest committed PostgreSQL data. It can
+                    run while Pull Data continues in the background.
+                </p>
+            </div>
+
+            <div class="control-actions">
+                <form
+                    id="pull-data-form"
+                    action="{{ url_for('pull_data') }}"
+                    method="post"
+                >
+                    <button
+                        id="pull-data-button"
+                        type="submit"
+                        {% if pull_status.state == "running" %}disabled{% endif %}
+                    >
+                        {% if pull_status.state == "running" %}
+                            Pulling data...
+                        {% else %}
+                            Pull Data
+                        {% endif %}
+                    </button>
+                </form>
+
+                <form
+                    id="update-analysis-form"
+                    action="{{ url_for('index') }}"
+                    method="get"
+                >
+                    <button id="update-analysis-button" type="submit">
+                        Update Analysis
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <section
+            id="pull-status-panel"
+            class="notice notice-{% if pull_status.state == 'running' %}warning{% else %}{{ pull_status.state }}{% endif %}"
+            role="status"
+            aria-live="polite"
+            {% if pull_status.state == "idle" %}hidden{% endif %}
+        >
+            <strong id="pull-status-title">{{ pull_status.title }}</strong>
+            <p id="pull-status-message">{{ pull_status.message }}</p>
+        </section>
+
+        <section
+            id="analysis-status-panel"
+            class="notice notice-warning"
+            role="status"
+            aria-live="polite"
+            hidden
+        >
+            <strong>Updating analysis</strong>
+            <p>
+                PostgreSQL is running all analysis queries. This page will
+                display the results as soon as they are ready.
+            </p>
+        </section>
+
+        {% if error %}
+            <section class="error-panel" role="alert">
+                <p class="eyebrow">Database error</p>
+                <h2>Results are temporarily unavailable</h2>
+                <p>{{ error }}</p>
+            </section>
+        {% else %}
+            <section class="section-heading" aria-labelledby="results-heading">
+                <div>
+                    <p class="eyebrow">Live results</p>
+                    <h2 id="results-heading">All analysis questions</h2>
+                </div>
+                <p class="question-count">
+                    {{ analysis_results | length }} questions
+                </p>
+            </section>
+
+            <section class="analysis-grid">
+                {% for result in analysis_results %}
+                    <article class="analysis-card">
+                        <div class="question-number" aria-hidden="true">
+                            {{ "%02d" | format(result.number) }}
+                        </div>
+
+                        <div class="card-content">
+                            <p class="question-label">
+                                Question {{ result.number }}
+                            </p>
+                            <h3>{{ result.question }}</h3>
+
+                            <dl class="answer-grid">
+                                {% for answer in result.answers %}
+                                    <div class="answer">
+                                        <dt>{{ answer.label }}</dt>
+                                        <dd>{{ answer.value }}</dd>
+                                    </div>
+                                {% endfor %}
+                            </dl>
+
+                            {% if result.note %}
+                                <p class="analysis-note">{{ result.note }}</p>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
+            </section>
+        {% endif %}
+    </main>
+
+    <footer>
+        <p>Results are generated dynamically from PostgreSQL.</p>
+    </footer>
+
+    <script>
+        const pullForm = document.querySelector("#pull-data-form");
+        const pullButton = document.querySelector("#pull-data-button");
+        const updateForm = document.querySelector("#update-analysis-form");
+        const updateButton = document.querySelector("#update-analysis-button");
+        const pullStatusPanel = document.querySelector("#pull-status-panel");
+        const pullStatusTitle = document.querySelector("#pull-status-title");
+        const pullStatusMessage = document.querySelector("#pull-status-message");
+        const analysisStatusPanel = document.querySelector("#analysis-status-panel");
+        const pullStatusUrl = {{ url_for("pull_status_endpoint") | tojson }};
+        const initialPullState = {{ pull_status.state | tojson }};
+
+        function showPullStatus(status) {
+            const styleState = status.state === "running"
+                ? "warning"
+                : status.state;
+
+            pullStatusPanel.className = `notice notice-${styleState}`;
+            pullStatusPanel.hidden = status.state === "idle";
+            pullStatusTitle.textContent = status.title;
+            pullStatusMessage.textContent = status.message;
+
+            const isRunning = status.state === "running";
+            pullButton.disabled = isRunning;
+            pullButton.textContent = isRunning ? "Pulling data..." : "Pull Data";
+
+            if (isRunning) {
+                window.setTimeout(refreshPullStatus, 2000);
+            }
+        }
+
+        async function refreshPullStatus() {
+            try {
+                const response = await fetch(pullStatusUrl, {cache: "no-store"});
+                if (!response.ok) {
+                    throw new Error("Status request failed");
+                }
+                showPullStatus(await response.json());
+            } catch (error) {
+                pullStatusPanel.hidden = false;
+                pullStatusPanel.className = "notice notice-error";
+                pullStatusTitle.textContent = "Status unavailable";
+                pullStatusMessage.textContent =
+                    "The pull may still be running. Check the Flask terminal.";
+            }
+        }
+
+        pullForm.addEventListener("submit", () => {
+            pullButton.disabled = true;
+            pullButton.textContent = "Starting pull...";
+        });
+
+        updateForm.addEventListener("submit", () => {
+            updateButton.disabled = true;
+            updateButton.textContent = "Updating analysis...";
+            analysisStatusPanel.hidden = false;
+        });
+
+        if (initialPullState === "running") {
+            window.setTimeout(refreshPullStatus, 1000);
+        }
+    </script>
+</body>
+</html>
