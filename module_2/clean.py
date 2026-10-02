@@ -175,18 +175,25 @@ def _parse_html_file(html_file):
     return applicants
 
 ### The main function that brings everything together
-def clean_data():
-    """Parse every data_*.html file and return one combined applicant list."""
-    if not html_path.exists():
+def clean_data(input_directory=html_path):
+    """Parse every data_*.html file from one directory."""
+    input_directory = Path(input_directory)
+
+    if not input_directory.exists():
         raise FileNotFoundError(
-            f"Collected HTML folder does not exist: {html_path}"
+            f"Collected HTML folder does not exist: {input_directory}"
         )
 
     # Sort by numbers in the filename so data_2 comes before data_10.
     html_files = sorted(
-        html_path.glob("data_*.html"),
+        input_directory.glob("data_*.html"),
         key=lambda path: int(path.stem.rsplit("_", 1)[-1]),
     )
+
+    if not html_files:
+        raise FileNotFoundError(
+            f"No data_*.html files found in: {input_directory}"
+        )
 
     all_applicants = []
     for html_file in html_files:
@@ -197,7 +204,9 @@ def clean_data():
 ### Saving the data into the "cleaned" folder
 def save_data(data, output_file=json_file):
     """Save applicant dictionaries as readable UTF-8 JSON, in "cleaned" folder."""
-    json_file.write_text(
+    output_file = Path(output_file)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text(
         json.dumps(data, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
