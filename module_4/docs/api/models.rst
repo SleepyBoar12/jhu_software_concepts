@@ -8,5 +8,7 @@ Location: ``module_4/src/models.py``. ``Applicant`` maps the PostgreSQL
 application diagnostic, rather than a pytest test; all test code remains in
 ``module_4/tests``.
 
+.. autoclass:: module_4.src.models.Base
+
 .. automodule:: module_4.src.models
    :members: Applicant, test_connection
