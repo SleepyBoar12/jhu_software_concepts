@@ -4,6 +4,9 @@ from contextlib import nullcontext
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock
+import re
+
+from bs4 import BeautifulSoup
 
 import pytest
 from sqlalchemy.orm import Session
@@ -13,7 +16,7 @@ from module_4.src.orm_queries import format_decimal
 
 
 @pytest.mark.analysis
-def test_answer_label_and_percentage_formatting(client, monkeypatch):
+def test_answer_label_and_percentage_formatting(app, client):
     formatted_percentage = format_decimal(Decimal("12.3"), "%")
     assert formatted_percentage == "12.30%"
 
@@ -29,11 +32,7 @@ def test_answer_label_and_percentage_formatting(client, monkeypatch):
             ],
         }
     ]
-    monkeypatch.setattr(
-        flask_app,
-        "build_analysis_results",
-        lambda session: fake_results,
-    )
+    app.extensions["analysis_query"].return_value = {"analysis_results": fake_results}
 
     response = client.get("/analysis")
     page = response.get_data(as_text=True)
@@ -55,7 +54,16 @@ def test_real_analysis_formats_mock_database_results():
         Decimal("3.50"), Decimal("166"), Decimal("160"), Decimal("4.5"),
     )
 
-    results = flask_app.build_analysis_results(session)
+    context = flask_app.query_analysis(lambda: nullcontext(session))
+    assert set(context) == {"analysis_results"}
+    results = context["analysis_results"]
+    for result in results:
+        assert {"number", "question", "answers"} <= set(result)
+        assert set(result) <= {"number", "question", "answers", "note"}
+        assert isinstance(result["question"], str) and result["question"]
+        for answer in result["answers"]:
+            assert set(answer) == {"label", "value"}
+            assert all(isinstance(value, str) and value for value in answer.values())
 
     assert [result["number"] for result in results] == list(range(1, 12))
     assert [[answer["value"] for answer in result["answers"]] for result in results] == [
@@ -184,3 +192,32 @@ def test_query_command_line_runs_all_questions(mock_database, run_module, capsys
     cursor.execute.assert_any_call(
         query_data.question_7_sql, ("Johns Hopkins University", "Computer Science", "Master%"),
     )
+
+
+@pytest.mark.analysis
+def test_every_rendered_percentage_and_answer_label(app, client):
+    session = Mock(spec=Session)
+    session.scalar.side_effect = [
+        1200, Decimal("3.75"), 3, 1, 2, 3, 4, 3, 3, 1,
+        Decimal("3.98"), 7, Decimal("3.88"),
+    ]
+    session.execute.return_value.one.return_value = (
+        Decimal("3.50"), Decimal("166"), Decimal("160"), Decimal("4.5"),
+    )
+    app.extensions["analysis_query"] = lambda: flask_app.query_analysis(lambda: nullcontext(session))
+    page = BeautifulSoup(client.get("/analysis").data, "html.parser")
+    percentages = re.findall(r"[^\s]+%", page.get_text(" ", strip=True))
+    assert len(percentages) == 3
+    assert all(re.fullmatch(r"\d+\.\d{2}%", value) for value in percentages)
+    cards = page.select(".analysis-card")
+    assert len(cards) == 11
+    assert all(card.select_one(".answer-label").get_text(strip=True) == "Answer:" for card in cards)
+
+
+@pytest.mark.analysis
+@pytest.mark.parametrize("value, expected", [
+    (0, "0.00%"), (100, "100.00%"), (Decimal("39.276"), "39.28%"),
+    (Decimal("12.3"), "12.30%"),
+])
+def test_percentage_rounding_and_trailing_zeroes(value, expected):
+    assert format_decimal(value, "%") == expected

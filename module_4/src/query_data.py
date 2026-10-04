@@ -17,42 +17,11 @@ ALL percentages, GPA, GRE quant, GRE verbal, and GRE analytical scores in 2 DECI
 11. What is the average GPA of students accepted for Johns Hopkins master's program?
 """
 
-import os
 from decimal import Decimal
 from pathlib import Path
 
 import psycopg
-from dotenv import load_dotenv
-
-
-### Load the same private database connection settings used by load_data.py.
-module_3_directory = Path(__file__).resolve().parent
-env_file = module_3_directory / ".env"
-
-if not env_file.is_file():
-    raise FileNotFoundError(f"Environment file not found: {env_file}")
-
-load_dotenv(env_file)
-
-required_environment_variables = (
-    "PGHOST",
-    "PGPORT",
-    "PGDATABASE",
-    "PGUSER",
-    "PGPASSWORD",
-)
-
-missing_environment_variables = [
-    variable
-    for variable in required_environment_variables
-    if not os.getenv(variable)
-]
-
-if missing_environment_variables:
-    raise RuntimeError(
-        "Missing environment variables: "
-        f"{missing_environment_variables}"
-    )
+from .database import connection_string
 
 
 ### Raw text may use "MIT" while the LLM field uses the full university name.
@@ -280,15 +249,9 @@ def run_query(cursor, question, sql_expression, parameters=()):
         print(" | ".join(format_value(value) for value in row))
 
 
-def main():
+def main(database_url=None):
     """Connect to PostgreSQL and run each assignment question in order."""
-    with psycopg.connect(
-        host=os.environ["PGHOST"],
-        port=int(os.environ["PGPORT"]),
-        dbname=os.environ["PGDATABASE"],
-        user=os.environ["PGUSER"],
-        password=os.environ["PGPASSWORD"],
-    ) as connection:
+    with psycopg.connect(connection_string(database_url)) as connection:
         with connection.cursor() as cursor:
             run_query(
                 cursor,

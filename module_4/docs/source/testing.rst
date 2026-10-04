@@ -1,134 +1,127 @@
 Testing guide
-=============
+=================
 
-Run the suite
--------------
+Run the complete suite
+--------------------------
 
-All Module 4 test code lives in ``module_4/tests``. Configure PostgreSQL and
-``module_4/src/.env`` as described in :doc:`overview`. Run from the repository
-root after activating the virtual environment:
+Activate the virtual environment and configure a test ``DATABASE_URL``.
+From the repository root:
 
 .. code-block:: bash
 
-   python -m pytest module_4/tests -v --require-postgres
+   python -m pytest module_4/tests -m "web or buttons or analysis or db or integration" --require-postgres
 
-``pytest.ini`` enables strict markers, measures ``module_4.src``, reports
-missing lines, and requires **100% statement coverage** for the full suite.
-The current suite contains 65 test cases, including parametrized cases.
-Coverage alone does not prove that a real database test executed:
-``--require-postgres`` fails setup when a connection or schema creation fails.
-Without this option, unavailable database tests are skipped for local runs.
+Or from ``module_4``:
 
-Markers and selection
----------------------
+.. code-block:: bash
 
-.. list-table:: Registered markers
+   pytest -m "web or buttons or analysis or db or integration" --require-postgres
+
+The suite requires 100% statement coverage of ``module_4.src``. The
+``--require-postgres`` option fails if a database is unavailable, so CI cannot
+silently skip the real database tests. Local runs without it can skip them.
+Use ``--no-cov`` only when intentionally running a subset.
+
+Markers
+-----------
+
+Every test must carry at least one of these markers. A collection hook checks
+all collected tests before marker deselection and rejects unmarked tests.
+``--strict-markers`` also rejects unregistered marks.
+
+.. list-table:: Categories
    :header-rows: 1
-   :widths: 15 35 50
 
    * - Marker
-     - Test file
-     - Scope
+     - Coverage
    * - ``web``
-     - ``test_flask_page.py``
-     - App configuration, routes, rendering, errors, and server startup.
+     - Factory isolation, routes, HTML components, selectors, and errors.
    * - ``buttons``
-     - ``test_buttons.py``
-     - Pull/update behavior, progress, and busy-state HTTP 409 responses.
+     - JSON contracts, injected ETL calls, busy gating, and error responses.
    * - ``analysis``
-     - ``test_analysis.py``
-     - SQL/ORM query behavior, empty results, and answer formatting.
+     - Query/template dictionary keys, all percentages, rounding, and labels.
    * - ``db``
-     - ``test_db_insert.py``
-     - Validation, loading, startup settings, real inserts, and idempotence.
+     - Module-3 schema, required fields, inserts, uniqueness, rollback, configuration.
    * - ``integration``
-     - ``test_integration_end_to_end.py``
-     - Real database flows through pull, update, rendering, and repeated pulls.
-
-Use ``--no-cov`` when selecting part of the suite: the 100% requirement applies
-to all application modules, so a partial run cannot satisfy it.
+     - Real PostgreSQL pull → update → render and overlapping pulls.
 
 .. code-block:: bash
 
-   python -m pytest module_4/tests -m web --no-cov
-   python -m pytest module_4/tests -m buttons --no-cov
    python -m pytest module_4/tests -m analysis --no-cov
-   python -m pytest module_4/tests -m db --no-cov --require-postgres
-   python -m pytest module_4/tests -m integration --no-cov --require-postgres
-   python -m pytest module_4/tests -m "web or buttons" --no-cov
-   python -m pytest module_4/tests/test_buttons.py::test_pull_data_when_busy --no-cov
 
-Expected routes and page selectors
-----------------------------------
+Selectors and formatting
+----------------------------
 
-The Flask client calls routes directly and checks response status and rendered
-text. Existing page tests look for ``Pull Data``, ``Update Analysis``,
-``Analysis``, and ``Answer:``. Percentage tests expect strings such as
-``12.30%``. These are Flask response tests; they do not execute browser
-JavaScript or use Selenium.
+Tests use the Flask test client and BeautifulSoup, without manual clicking,
+Selenium, or browser JavaScript execution. Stable button selectors are
+``[data-testid="pull-data-btn"]`` and ``[data-testid="update-analysis-btn"]``.
+The existing ``#pull-data-button`` and ``#update-analysis-button`` IDs remain.
+Each question is an ``.analysis-card`` with an ``.answer-label`` containing
+``Answer:``. Values appear in ``.answer-grid dd``.
 
-The template also provides these stable selectors for manual or future browser
-checks:
+Tests inspect every percentage token in the rendered page and require a full
+regex match of ``\d+\.\d{2}%``. They also cover zero, 100%, rounding, and trailing
+zeroes. Every real analysis card must contain an Answer label. The real
+``query_analysis`` result must contain ``analysis_results`` with the complete
+question/answer dictionary keys expected by the template. Separate database
+tests verify an explicit set of all fifteen Module-3 applicant field names.
 
-.. list-table:: UI contract
-   :header-rows: 1
-   :widths: 40 60
+Fixtures and injection
+--------------------------
 
-   * - Selector
-     - Expected behavior
-   * - ``#pull-data-form`` / ``#pull-data-button``
-     - Submit POST ``/pull-data``; the button is disabled while running.
-   * - ``#update-analysis-form`` / ``#update-analysis-button``
-     - Submit POST ``/update-analysis``; the button is disabled while running.
-   * - ``#pull-status-panel``
-     - Hidden in the idle state; announces progress with ``role="status"``.
-   * - ``#pull-status-title`` / ``#pull-status-message``
-     - Display the worker's current title and message.
-   * - ``#analysis-status-panel``
-     - Announces that an analysis update is running.
-   * - ``.analysis-card`` / ``.answer-label`` / ``.answer-grid``
-     - Display each analysis question, ``Answer:``, and its result values.
-   * - ``.error-panel[role="alert"]``
-     - Display an analysis database error with HTTP 500.
+``create_app`` accepts replaceable functions:
 
-Both GET ``/`` and GET ``/analysis`` render analysis. GET ``/pull-status``
-returns status JSON. Busy POST requests return HTTP 409 and must not start a
-second worker or run a new analysis.
+.. code-block:: python
 
-Fixtures and doubles
---------------------
+   from module_4.src.flask_app import create_app
 
-Shared fixtures are in ``tests/conftest.py``:
+   record = {
+       "program": "Computer Science, Example University",
+       "date_added": "Oct 03, 2026",
+       "url": "https://example.com/result/1",
+       "applicant_status": "Accepted",
+   }
+   app = create_app(
+       {"TESTING": True},
+       scraper=lambda directory: [],
+       cleaner=lambda directory: [record],
+       loader=lambda records: {
+           "processed_rows": 1, "inserted_rows": 1, "updated_rows": 0,
+       },
+       query=lambda: {"analysis_results": []},
+   )
+   assert app.test_client().post("/pull-data").json == {"ok": True}
 
-* ``valid_applicant`` supplies a complete, deterministic input record.
-* ``fake_pg_environment`` sets predictable ``PG*`` values for mocked tests.
-* ``mock_database`` replaces ``psycopg.connect`` with connection/cursor mocks,
-  including their context managers; it does not open PostgreSQL.
-* ``run_module`` exercises real command-line startup through ``runpy`` and
-  restores the imported module afterwards.
-* ``app`` replaces the session boundary and analysis builder, enables Flask
-  testing, and supplies fixed answers; ``client`` returns its test client.
-* ``set_pull_state`` isolates the shared status dictionary for each test.
-* ``isolated_database`` creates a uniquely named PostgreSQL schema, redirects
-  loader connections through its search path, creates the real applicants
-  table, and drops that schema during teardown.
+``scraper`` receives a temporary output directory; ``cleaner`` reads it;
+``loader`` receives cleaned dictionaries; ``query`` takes no arguments and
+returns the template context. Each factory call owns its status and lock.
 
-Button and database tests replace ``Thread`` with ``ImmediateThread``, which
-runs the worker synchronously. They monkeypatch ``run_pull_pipeline`` with
-either a fixed summary or a call to the real loader using fixed records.
-No test needs access to GradCafe or an LLM service.
+Shared fixtures in ``tests/conftest.py`` provide:
 
-The ``integration_client`` fixture in ``test_integration_end_to_end.py`` binds
-real SQLAlchemy sessions to the isolated schema and leaves the analysis code
-active. It verifies inserted data, formatted answers, and overlapping pulls
-without duplicate URLs. The database role must be able to create and drop
-schemas in the test database.
+* ``valid_applicant``: complete, deterministic input.
+* ``app`` and ``client``: a fresh app with injected functions and its test client.
+* ``set_pull_state``: observable, isolated busy state without delays.
+* ``no_live_scraping``: fail immediately on live HTTP access or Chrome startup.
+* ``mock_database``: connection/cursor mocks for validation and CLI tests.
+* ``run_module``: execute CLI entry points with external effects mocked.
+* ``isolated_database``: unique schema and a URL whose search path targets it;
+  teardown drops only that schema.
 
-GitHub Actions
---------------
+A concurrency test uses threading events to hold a fake scraper while another
+client verifies both busy responses and no update/loader calls. It releases the
+scraper in ``finally``. Event timeouts bound failures; no arbitrary sleeps are
+used. The end-to-end test checks empty results, a real committed pull, updated
+analysis, all percentage tokens, and Answer labels.
 
-``.github/workflows/tests.yml`` creates a PostgreSQL 16 service with a health
-check, maps port 5432, supplies matching ``PG*`` settings, creates an empty
-``src/.env``, and runs ``python -m pytest tests -v --require-postgres`` from
-``module_4``. The service uses a temporary ``test_db`` database. The full run
-must include database and integration tests and meet the coverage threshold.
+Rollback tests set the batch size to one, write a valid first batch, then fail
+on invalid input or a PostgreSQL constraint in the second batch. They require
+HTTP 500, released busy state, and zero persisted rows.
+
+CI
+--
+
+``.github/workflows/tests.yml`` starts PostgreSQL 16, waits for its health
+check, supplies ``DATABASE_URL``, and runs the entire marker-selected suite
+with ``--require-postgres``. The database and its run-specific credentials are
+disposable. ``documentation.yml`` separately builds Sphinx with warnings as
+errors. Test execution takes seconds; live scraping is never part of CI.

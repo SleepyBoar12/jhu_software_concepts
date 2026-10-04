@@ -1,5 +1,5 @@
-from contextlib import nullcontext
-import os
+"""Offline test doubles and isolated real PostgreSQL schemas."""
+
 import runpy
 import sys
 from unittest.mock import MagicMock, Mock
@@ -10,14 +10,41 @@ from psycopg import sql
 import pytest
 
 from module_4.src import flask_app
+from module_4.src.database import connection_string, get_database_url
+
+
+ALLOWED_MARKERS = {"web", "buttons", "analysis", "db", "integration"}
 
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--require-postgres",
-        action="store_true",
+        "--require-postgres", action="store_true",
         help="Fail database tests instead of skipping when PostgreSQL is unavailable.",
     )
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(items):
+    """Reject unmarked tests before pytest applies marker deselection."""
+    unmarked = [item.nodeid for item in items
+                if not ALLOWED_MARKERS.intersection(m.name for m in item.iter_markers())]
+    if unmarked:
+        raise pytest.UsageError("Tests require a category marker: " + ", ".join(unmarked))
+
+
+@pytest.fixture(autouse=True)
+def no_live_scraping(monkeypatch):
+    """Make accidental HTTP requests or browser startup fail immediately."""
+    import urllib.request
+    import urllib3
+    from selenium import webdriver
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Live HTTP requests and browser startup are forbidden in tests")
+
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden)
+    monkeypatch.setattr(urllib3.PoolManager, "request", forbidden)
+    monkeypatch.setattr(webdriver, "Chrome", forbidden)
 
 
 @pytest.fixture
@@ -43,17 +70,10 @@ def valid_applicant():
 
 @pytest.fixture
 def fake_pg_environment(monkeypatch):
-    """Use predictable connection settings in tests with mocked databases."""
-    options = {
-        "PGHOST": "localhost",
-        "PGPORT": "5432",
-        "PGDATABASE": "test_applicants",
-        "PGUSER": "test_user",
-        "PGPASSWORD": "test_password",
-    }
-    for name, value in options.items():
-        monkeypatch.setenv(name, value)
-    return options
+    """Provide a credential-free URI for tests whose connections are mocked."""
+    url = "postgresql://localhost/test_applicants"
+    monkeypatch.setenv("DATABASE_URL", url)
+    return url
 
 
 @pytest.fixture
@@ -71,45 +91,28 @@ def mock_database(monkeypatch, fake_pg_environment):
 
 @pytest.fixture
 def run_module(monkeypatch):
-    """Execute a module's real startup code without replacing its functions."""
+    """Execute startup code, then restore the imported module."""
     def run(module, *, run_name="__main__"):
-        # Restore the imported module afterward so later tests keep their state.
         with monkeypatch.context() as patch:
             patch.delitem(sys.modules, module.__name__)
             return runpy.run_module(module.__name__, run_name=run_name)
-
     return run
 
 
 @pytest.fixture
-def app(monkeypatch):
-    """Create a testable Flask app without connecting to PostgreSQL."""
-    fake_results = [
-        {
-            "number": 1,
-            "question": "How many example applicants are there?",
-            "answers": [
-                {
-                    "label": "Example applicants",
-                    "value": "5",
-                }
-            ],
-        }
-    ]
-
-    monkeypatch.setattr(
-        flask_app,
-        "SessionLocal",
-        lambda: nullcontext(object()),
+def app(valid_applicant):
+    """Build a fresh app using injected ETL and query functions."""
+    return flask_app.create_app(
+        {"TESTING": True},
+        scraper=Mock(return_value=[]),
+        cleaner=Mock(return_value=[valid_applicant]),
+        loader=Mock(return_value={"processed_rows": 1, "inserted_rows": 1,
+                                  "updated_rows": 0, "total_rows": 1}),
+        query=Mock(return_value={"analysis_results": [{
+            "number": 1, "question": "How many example applicants are there?",
+            "answers": [{"label": "Example applicants", "value": "5"}],
+        }]}),
     )
-    monkeypatch.setattr(
-        flask_app,
-        "build_analysis_results",
-        lambda session: fake_results,
-    )
-
-    flask_app.app.config.update(TESTING=True)
-    return flask_app.app
 
 
 @pytest.fixture
@@ -118,86 +121,49 @@ def client(app):
 
 
 @pytest.fixture
-def set_pull_state(monkeypatch):
-    """Set an isolated pull status without changing another test's state."""
-
+def set_pull_state(app):
+    """Expose the current app's busy state without timing assumptions."""
     def set_state(state):
-        status = {
-            "state": state,
-            "title": "Test pull status",
-            "message": "Test status message",
-            "started_at": None,
-            "finished_at": None,
-            "summary": None,
-        }
-        monkeypatch.setattr(flask_app, "pull_job_status", status)
-        return status
-
+        app.extensions["pull_state"]["status"]["state"] = state
+        return app.extensions["pull_state"]["status"]
     return set_state
 
 
 @pytest.fixture
-def isolated_database(monkeypatch, request):
-    """Create a temporary PostgreSQL schema and remove it after the test."""
-    from module_4.src import load_data
-
-    real_connect = psycopg.connect
-    connection_options = {
-        "host": os.environ["PGHOST"],
-        "port": int(os.environ["PGPORT"]),
-        "dbname": os.environ["PGDATABASE"],
-        "user": os.environ["PGUSER"],
-        "password": os.environ["PGPASSWORD"],
-        "connect_timeout": 3,
-    }
-    schema_name = f"test_applicants_{uuid4().hex}"
-
+def isolated_database(request):
+    """Use a unique PostgreSQL schema; never modify the application's rows."""
     try:
-        admin_connection = real_connect(**connection_options)
-    except psycopg.OperationalError as error:
+        database_url = get_database_url()
+        connection_uri = connection_string(database_url)
+        admin_connection = psycopg.connect(connection_uri, connect_timeout=3)
+    except (RuntimeError, psycopg.OperationalError) as error:
         if request.config.getoption("--require-postgres"):
             pytest.fail(f"PostgreSQL is unavailable: {error}", pytrace=False)
-        pytest.skip(f"PostgreSQL is unavailable: {error}")
+        pytest.skip("PostgreSQL is unavailable; use --require-postgres to require it")
 
+    schema_name = f"test_applicants_{uuid4().hex}"
     admin_connection.autocommit = True
     try:
         with admin_connection.cursor() as cursor:
-            cursor.execute(
-                sql.SQL("CREATE SCHEMA {}").format(
-                    sql.Identifier(schema_name)
-                )
-            )
-    except psycopg.Error as error:
+            cursor.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema_name)))
+    except psycopg.Error:
         admin_connection.close()
-        if request.config.getoption("--require-postgres"):
-            pytest.fail(
-                f"Cannot create an isolated PostgreSQL schema: {error}",
-                pytrace=False,
-            )
-        pytest.skip(f"Cannot create an isolated PostgreSQL schema: {error}")
+        raise
 
-    def connect_to_test_schema(*args, **kwargs):
-        options = dict(connection_options)
-        options.update(kwargs)
-        options["options"] = f"-c search_path={schema_name}"
-        return real_connect(**options)
+    test_url = database_url.update_query_dict({"options": f"-c search_path={schema_name}"})
+    test_uri = connection_string(test_url)
+
+    def connect_to_test_schema():
+        return psycopg.connect(test_uri)
 
     connect_to_test_schema.schema_name = schema_name
-
-    # The loader opens its own connection. Send it to this temporary schema.
-    monkeypatch.setattr(load_data.psycopg, "connect", connect_to_test_schema)
-
-    with connect_to_test_schema() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(load_data.create_table_sql)
-
+    connect_to_test_schema.database_url = test_uri
     try:
+        from module_4.src.load_data import create_table_sql
+        with connect_to_test_schema() as connection:
+            connection.execute(create_table_sql)
         yield connect_to_test_schema
     finally:
         with admin_connection.cursor() as cursor:
-            cursor.execute(
-                sql.SQL("DROP SCHEMA {} CASCADE").format(
-                    sql.Identifier(schema_name)
-                )
-            )
+            cursor.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema_name)))
         admin_connection.close()

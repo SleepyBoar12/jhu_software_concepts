@@ -1,11 +1,7 @@
 ### Create "Applicant" with SQLAlchemy and answer all the SQL questions with model & create a dynamic web application
 
-import os
 from datetime import date
-from pathlib import Path
-from dotenv import load_dotenv
 from sqlalchemy import (
-    URL,
     Date,
     Double,
     Identity,
@@ -21,35 +17,30 @@ from sqlalchemy.orm import (
     mapped_column,
     sessionmaker)
 
-### Load database credentials from module_3/.env.
-module_directory = Path(__file__).resolve().parent
-env_file = module_directory / ".env"
+from contextlib import contextmanager
 
-if not env_file.is_file():
-    raise FileNotFoundError(f"Environment file not found: {env_file}")
-
-load_dotenv(env_file)
-
-### Build a PostgreSQL connection URL
-database_url = URL.create(
-    drivername="postgresql+psycopg",
-    username=os.environ["PGUSER"],
-    password=os.environ["PGPASSWORD"],
-    host=os.environ["PGHOST"],
-    port=int(os.environ["PGPORT"]),
-    database=os.environ["PGDATABASE"])
+from .database import get_database_url
 
 
-### Create the reusable SQLAlchemy connection engine.
-engine = create_engine(
-    database_url,
-    pool_pre_ping=True)
+def create_session_factory(database_url=None):
+    """Create sessions for a PostgreSQL URL without opening a connection yet."""
+    engine = create_engine(
+        get_database_url(database_url).set(drivername="postgresql+psycopg"),
+        pool_pre_ping=True,
+    )
+    return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
-### Create database sessions for queries and application requests.
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    expire_on_commit=False)
+
+@contextmanager
+def SessionLocal(database_url=None):
+    """Open one CLI session and dispose its engine when finished."""
+    factory = create_session_factory(database_url)
+    try:
+        with factory() as session:
+            yield session
+    finally:
+        factory.kw["bind"].dispose()
+
 
 class Base(DeclarativeBase):
     """Provide the base class inherited by SQLAlchemy models."""

@@ -1,8 +1,8 @@
 Architecture
-============
+================
 
 Layers and responsibilities
----------------------------
+-------------------------------
 
 .. list-table:: Application layers
    :header-rows: 1
@@ -29,7 +29,7 @@ Layers and responsibilities
        calculate SQL and ORM analyses.
 
 Data flow
----------
+-------------
 
 .. code-block:: text
 
@@ -46,12 +46,12 @@ Data flow
        ▼
    Flask analysis results → Jinja template → browser
 
-The two earlier ETL modules are documented in their existing locations;
-Module 4 does not currently wire them into a live Flask pull. Tests connect
-the Flask hook to the real loader using fixed input records.
+The earlier ETL modules are reused in the default Flask pull pipeline and
+documented in their existing locations. Tests inject scraper and cleaner
+functions, then use the real loader for database and integration checks.
 
 Database contract
------------------
+---------------------
 
 ``applicants.p_id`` is an identity primary key. ``url`` is unique and is the
 upsert key. ``program``, ``date_added``, ``url``, and ``status`` are required.
@@ -67,15 +67,18 @@ and ``total_rows``. Its connection commits on success and rolls back on error.
 See :doc:`api/load_data` for the functions and :doc:`api/models` for the ORM.
 
 Web requests and background work
---------------------------------
+------------------------------------
 
-``index()`` opens a SQLAlchemy session, computes eleven analyses, and renders
-the page. Database errors render an error page with HTTP 500.
-Counts use whole numbers; score averages and percentages use two decimal
-places; unavailable values display ``N/A``.
+``create_app`` configures an independent application with injectable scraper,
+cleaner, loader, and query functions. It accepts a ``DATABASE_URL`` override.
+The default ``query_analysis`` returns the dictionary consumed by Jinja.
+Database errors render an error page with HTTP 500. Counts use whole numbers;
+score averages and percentages use two decimal places; unavailable values
+use ``N/A``.
 
-``pull_data()`` sets shared status to ``running`` while holding a lock, starts
-a daemon thread, and renders the page. The worker records ``success`` or
-``error``. A second pull or an analysis update while running receives HTTP 409.
-The browser polls ``/pull-status`` while a pull is running. Status is in memory
-and belongs to the Flask process; it is not a persistent cross-process queue.
+``pull_data`` claims the busy state under a lock, runs ETL in its request
+thread, and returns JSON after commit. A second pull or an analysis update
+while running receives HTTP 409 with ``{"busy": true}``. The page submits
+with fetch and uses ``/pull-status`` to display progress. State belongs to
+one Flask application process. See :doc:`operations` for deployment limits,
+rollback behavior, and the uniqueness strategy.

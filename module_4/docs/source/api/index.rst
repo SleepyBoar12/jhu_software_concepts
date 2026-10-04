@@ -1,5 +1,5 @@
 API reference
-=============
+=================
 
 These pages are generated with Sphinx autodoc from the real modules. Scraping
 and cleaning are the earlier Module 2 components; database and web components

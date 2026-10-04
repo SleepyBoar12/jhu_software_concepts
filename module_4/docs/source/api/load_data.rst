@@ -1,8 +1,9 @@
 load_data.py — validation and loading
-=====================================
+=========================================
 
 Location: ``module_4/src/load_data.py``. Use ``load_cleaned_records(records)``
-for cleaned dictionaries. ``read_records(path)`` instead reads JSON Lines
+for cleaned dictionaries. The optional ``database_url`` argument overrides
+``DATABASE_URL``. ``read_records(path)`` instead reads JSON Lines
 and yields already prepared records for ``load_records()``.
 
 .. code-block:: python

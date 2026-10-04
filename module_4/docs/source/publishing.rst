@@ -1,64 +1,73 @@
 Build and publish documentation
-===============================
+===================================
 
 Local build
------------
+---------------
 
-Install ``module_4/requirements.txt``, activate the virtual environment, and
-build from ``module_4``:
+From the repository root, after installing ``module_4/requirements.txt``:
 
 .. code-block:: bash
 
-   cd module_4
-   make -C docs html
+   python -m sphinx -b html -W --keep-going module_4/docs/source module_4/docs/build/html
 
-Open ``docs/build/html/index.html``. The Makefile passes ``-W --keep-going``
-so warnings fail the build, including broken autodoc imports. ``docs/build``
-is ignored by Git; commit ``docs/source``, the build scripts, and configuration.
-On Windows, run ``docs\make.bat html``.
+Open ``module_4/docs/build/html/index.html``. The ``-W`` option makes warnings
+fail the build, including broken autodoc imports. Generated HTML is ignored by
+Git. Commit the documentation sources and build configuration.
 
-``docs/source/conf.py`` selects ``sphinx_rtd_theme``, enables autodoc, and links
-to highlighted Python source with viewcode.
-It imports the real Module 4 modules under
-temporary documentation-only environment settings. During those imports it
-bypasses the local environment-file check and disables dotenv loading. It
-does not read private credentials, create ``.env``, connect to PostgreSQL,
-start Flask, or perform ETL. Optional Selenium and BeautifulSoup imports are
-mocked for the earlier Module 2 API pages.
+Sphinx imports the actual Python modules for autodoc and viewcode. The modules
+do not read credentials, create engines, open connections, start Flask, or run
+ETL merely by being imported. The documentation configuration therefore needs
+no credentials, dummy environment variables, or import monkeypatches.
 
-Read the Docs integration
---------------------------
+Read the Docs
+-----------------
 
-The repository remote is
-``git@github.com:SleepyBoar12/jhu_software_concepts.git``. Read the Docs uses
-``.readthedocs.yaml`` at the repository root. It installs
-``module_4/requirements.txt`` with Python 3.14 on Ubuntu 24.04 and builds
+The project is `JHU Software Concepts SleepyBoar12
+<https://app.readthedocs.org/projects/jhu-software-concepts-sleepyboar12/>`_.
+Open the `published HTML documentation <https://jhu-software-concepts-sleepyboar12.readthedocs.io/en/latest/>`_.
+
+The repository-root ``.readthedocs.yaml`` selects Python 3.14 on Ubuntu 24.04,
+installs ``module_4/requirements.txt``, and builds
 ``module_4/docs/source/conf.py`` with warnings treated as errors.
 
-1. Commit and push the documentation sources and ``.readthedocs.yaml`` to
-   ``main``. The repository must be public for the community hosting service.
-2. Sign in at `Read the Docs <https://app.readthedocs.org/>`_.
-3. Add a project and import the GitHub repository, or enter the public
-   repository URL manually if GitHub is not connected.
-4. Set the default branch to ``main``. Read the Docs discovers the root
-   configuration file and builds the ``latest`` version.
-5. Confirm the build succeeds and use **View docs** to open its public URL.
-   Add that exact URL to the repository README.
+1. Sign in to `Read the Docs <https://app.readthedocs.org/>`_. Complete account
+   creation and email verification if requested.
+2. Choose **Add project** and select the GitHub repository, or choose
+   **Configure manually** and use
+   ``https://github.com/SleepyBoar12/jhu_software_concepts``.
+3. Confirm the repository branch containing the completed Module-4 changes.
+4. Select **This file exists** when prompted for the configuration file.
+5. Wait for the build to finish successfully, then open **View docs**.
+6. Link that exact public documentation URL in both repository READMEs.
 
-Enable the repository webhook/integration so new commits trigger Read the Docs
-builds. If no webhook is connected, use the project's **Build version** control
-after a push. ``.github/workflows/documentation.yml`` independently checks
-documentation builds on pull requests and pushes to ``main``; a manual
-**Run workflow** is also available. No database service or application secrets
-are required to build docs. See
-`the Read the Docs Sphinx guide <https://docs.readthedocs.com/platform/stable/intro/sphinx.html>`_
+Read the Docs fetches committed, pushed source from GitHub; it cannot build
+uncommitted local edits. With an integration/webhook configured, subsequent
+pushes rebuild the documentation. Otherwise use **Build version** explicitly.
+The independent ``Documentation`` GitHub Actions workflow checks local-equivalent
+Sphinx builds on pull requests and pushes to ``main``.
+
+For current setup details, see the official
+`project import guide <https://docs.readthedocs.com/platform/stable/intro/add-project.html>`_
 and `configuration reference <https://docs.readthedocs.com/platform/stable/config-file/v2.html>`_.
 
-Updating API pages
-------------------
+Troubleshooting publication
+-------------------------------
 
-API pages use ``automodule`` directives, so function signatures and docstrings
-are refreshed from Python when Sphinx runs. Update the surrounding examples
-and architecture/testing guides whenever behavior changes. The scraper and
-cleaner pages reference their existing ``module_2`` locations. If they move
-into Module 4 later, update those import paths and the architecture guide.
+* Verify that the build uses the intended branch and commit. A successful old
+  build does not establish that the new application APIs are documented.
+* Missing modules usually mean the requirements installation failed; inspect
+  that step before changing autodoc directives.
+* Warnings fail the build deliberately. Fix stale member names, headings, or
+  cross-references rather than disabling the warning check.
+* Database connection errors during autodoc indicate an import-time side
+  effect; documentation builds should not need ``DATABASE_URL``.
+* A successful build with no automatic updates usually indicates a missing
+  webhook or integration. Trigger a manual build until it is configured.
+
+Updating API pages
+----------------------
+
+The ``automodule`` directives refresh signatures and docstrings on every build.
+Keep the setup, architecture, testing, and operational guides consistent with
+those APIs. Scraping and cleaning remain in ``module_2``; Flask, loading,
+queries, and database configuration are documented from ``module_4.src``.

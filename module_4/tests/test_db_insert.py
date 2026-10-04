@@ -7,13 +7,12 @@ import json
 from pathlib import Path
 from unittest.mock import Mock
 
-import dotenv
 import psycopg
 import pytest
 import sqlalchemy
 from sqlalchemy.orm import Session
 
-from module_4.src import flask_app, load_data, models, query_data
+from module_4.src import database, flask_app, load_data, models, query_data
 
 
 required_fields = {"program", "date_added", "url", "status"}
@@ -55,28 +54,14 @@ fake_rows = [
 ]
 
 
-class ImmediateThread:
-    """Run Flask's background pull immediately during a database test."""
-
-    def __init__(self, *, target, name, daemon):
-        self.target = target
-        self.name = name
-        self.daemon = daemon
-
-    def start(self):
-        self.target()
-
-
-def configure_fake_pull(monkeypatch):
-    """Make POST /pull-data process predictable rows without web access."""
-    fake_pull = Mock(
-        side_effect=lambda: load_data.load_cleaned_records(fake_rows)
-    )
-
-    monkeypatch.setattr(flask_app, "run_pull_pipeline", fake_pull)
-    monkeypatch.setattr(flask_app, "Thread", ImmediateThread)
-
-    return fake_pull
+def configure_fake_pull(app, isolated_database):
+    """Inject records and use the real loader in the isolated database."""
+    app.extensions["etl"]["cleaner"].return_value = fake_rows
+    loader = Mock(side_effect=lambda rows: load_data.load_cleaned_records(
+        rows, database_url=isolated_database.database_url
+    ))
+    app.extensions["etl"]["loader"] = loader
+    return loader
 
 
 def applicant_count(connect):
@@ -90,21 +75,21 @@ def applicant_count(connect):
 # Before the pull the table is empty; afterward required fields are populated.
 @pytest.mark.db
 def test_insert_on_pull(
+    app,
     client,
-    monkeypatch,
     set_pull_state,
     isolated_database,
 ):
     set_pull_state("idle")
-    fake_pull = configure_fake_pull(monkeypatch)
+    fake_pull = configure_fake_pull(app, isolated_database)
 
     assert applicant_count(isolated_database) == 0
 
     response = client.post("/pull-data")
 
     assert response.status_code == 200
-    fake_pull.assert_called_once_with()
-    assert flask_app.pull_job_status["state"] == "success"
+    fake_pull.assert_called_once_with(fake_rows)
+    assert client.get("/pull-status").get_json()["state"] == "success"
     assert applicant_count(isolated_database) == len(fake_rows)
 
     with isolated_database() as connection:
@@ -125,13 +110,13 @@ def test_insert_on_pull(
 # Pulling identical rows twice must not create duplicate database rows.
 @pytest.mark.db
 def test_pull_is_idempotent(
+    app,
     client,
-    monkeypatch,
     set_pull_state,
     isolated_database,
 ):
     set_pull_state("idle")
-    fake_pull = configure_fake_pull(monkeypatch)
+    fake_pull = configure_fake_pull(app, isolated_database)
 
     first_response = client.post("/pull-data")
     second_response = client.post("/pull-data")
@@ -139,8 +124,8 @@ def test_pull_is_idempotent(
     assert first_response.status_code == 200
     assert second_response.status_code == 200
     assert fake_pull.call_count == 2
-    assert flask_app.pull_job_status["state"] == "success"
-    assert flask_app.pull_job_status["summary"]["inserted_rows"] == 0
+    assert client.get("/pull-status").get_json()["state"] == "success"
+    assert client.get("/pull-status").get_json()["summary"]["inserted_rows"] == 0
     assert applicant_count(isolated_database) == len(fake_rows)
 
     with isolated_database() as connection:
@@ -156,7 +141,7 @@ def test_pull_is_idempotent(
 # A source query function returns one applicant dictionary with expected keys.
 @pytest.mark.db
 def test_simple_query_returns_expected_dict(isolated_database):
-    load_data.load_cleaned_records([fake_rows[0]])
+    load_data.load_cleaned_records([fake_rows[0]], database_url=isolated_database.database_url)
 
     with isolated_database() as connection:
         with connection.cursor() as cursor:
@@ -166,7 +151,11 @@ def test_simple_query_returns_expected_dict(isolated_database):
             )
 
     assert isinstance(applicant, dict)
-    assert set(applicant) == set(query_data.applicant_fields)
+    assert set(applicant) == {
+        "p_id", "program", "comments", "date_added", "url", "status", "term",
+        "us_or_international", "gpa", "gre", "gre_v", "gre_aw", "degree",
+        "llm_generated_program", "llm_generated_university",
+    }
     assert required_fields <= set(applicant)
     assert all(applicant[field] is not None for field in required_fields)
 
@@ -381,30 +370,52 @@ def test_loader_command_line_loads_file_and_prints_summary(
 
 
 @pytest.mark.db
-@pytest.mark.parametrize(
-    "module", [load_data, models, query_data], ids=lambda module: module.__name__,
-)
-def test_startup_requires_environment_file(module, monkeypatch, run_module):
-    env_file = Path(module.__file__).with_name(".env")
-    original_is_file = Path.is_file
-    monkeypatch.setattr(
-        Path, "is_file", lambda path: False if path == env_file else original_is_file(path),
-    )
-
-    with pytest.raises(FileNotFoundError, match="Environment file not found"):
-        run_module(module, run_name=module.__name__)
+def test_database_url_takes_precedence_without_env_file(monkeypatch):
+    monkeypatch.setattr(database, "load_dotenv", Mock(return_value=False))
+    monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/from_environment")
+    monkeypatch.setenv("PGDATABASE", "legacy_must_not_win")
+    assert database.get_database_url().database == "from_environment"
+    assert database.get_database_url("postgresql://localhost/explicit").database == "explicit"
+    assert database.get_database_url("postgres://localhost/alias").drivername == "postgresql"
+    assert database.get_database_url("postgresql+psycopg://localhost/driver").drivername == "postgresql"
 
 
 @pytest.mark.db
-@pytest.mark.parametrize(
-    "module", [load_data, query_data], ids=lambda module: module.__name__,
-)
-def test_startup_reports_missing_environment_variable(module, monkeypatch, run_module):
-    monkeypatch.setattr(dotenv, "load_dotenv", Mock(return_value=False))
-    monkeypatch.delenv("PGHOST", raising=False)
+def test_database_configuration_is_validated_without_exposing_secrets(monkeypatch):
+    monkeypatch.setattr(database, "load_dotenv", Mock(return_value=False))
+    for name in ("DATABASE_URL", "PGHOST", "PGDATABASE", "PGUSER"):
+        monkeypatch.delenv(name, raising=False)
+    with pytest.raises(RuntimeError, match="Set DATABASE_URL"):
+        database.get_database_url()
+    with pytest.raises(ValueError, match="must use PostgreSQL"):
+        database.get_database_url("sqlite:///example.db")
 
-    with pytest.raises(RuntimeError, match="Missing environment variables:.*PGHOST"):
-        run_module(module, run_name=module.__name__)
+
+@pytest.mark.db
+def test_connection_uri_preserves_postgres_options_and_special_characters():
+    from psycopg.conninfo import conninfo_to_dict
+    from sqlalchemy import URL
+    url = URL.create(
+        "postgresql", host="localhost", database="test_applicants",
+        query={"options": "-c search_path=test_schema", "application_name": "test+runner"},
+    )
+    options = conninfo_to_dict(database.connection_string(url))
+    assert options["options"] == "-c search_path=test_schema"
+    assert options["application_name"] == "test+runner"
+
+
+@pytest.mark.db
+def test_legacy_pg_environment_remains_supported(monkeypatch):
+    monkeypatch.setattr(database, "load_dotenv", Mock(return_value=False))
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("PGHOST", "localhost")
+    monkeypatch.setenv("PGUSER", "legacy_role")
+    monkeypatch.setenv("PGDATABASE", "legacy_database")
+    monkeypatch.setenv("PGPORT", "5433")
+    url = database.get_database_url()
+    assert url.host == "localhost"
+    assert url.database == "legacy_database"
+    assert url.port == 5433
 
 
 @pytest.mark.db
@@ -421,6 +432,7 @@ def test_model_command_line_checks_connection(
     session.scalar.return_value = 7
     session_factory = Mock(side_effect=lambda: nullcontext(session))
     engine = Mock()
+    session_factory.kw = {"bind": engine}
     create_engine = Mock(return_value=engine)
     monkeypatch.setattr(sqlalchemy, "create_engine", create_engine)
     monkeypatch.setattr(sqlalchemy.orm, "sessionmaker", Mock(return_value=session_factory))
@@ -433,3 +445,55 @@ def test_model_command_line_checks_connection(
     session.scalar.assert_called_once()
     create_engine.assert_called_once()
     assert create_engine.call_args.args[0].database == "test_applicants"
+
+
+@pytest.mark.db
+def test_post_pull_rolls_back_earlier_batches_on_invalid_record(
+    app, client, isolated_database, monkeypatch, valid_applicant,
+):
+    configure_fake_pull(app, isolated_database)
+    monkeypatch.setattr(load_data, "batch_size", 1)
+    app.extensions["etl"]["cleaner"].return_value = [
+        valid_applicant, {**valid_applicant, "url": "", "comments": "invalid second batch"},
+    ]
+    response = client.post("/pull-data")
+    assert response.status_code == 500
+    assert response.get_json()["ok"] is False
+    assert applicant_count(isolated_database) == 0
+    assert client.get("/pull-status").get_json()["state"] == "error"
+
+
+@pytest.mark.db
+def test_post_pull_rolls_back_on_database_constraint_error(
+    app, client, isolated_database, monkeypatch, valid_applicant,
+):
+    configure_fake_pull(app, isolated_database)
+    with isolated_database() as connection:
+        connection.execute("ALTER TABLE applicants ADD CHECK (gpa <= 4.0)")
+    monkeypatch.setattr(load_data, "batch_size", 1)
+    app.extensions["etl"]["cleaner"].return_value = [
+        valid_applicant,
+        {**valid_applicant, "url": valid_applicant["url"] + "-invalid", "gpa": "5.0"},
+    ]
+    assert client.post("/pull-data").status_code == 500
+    assert applicant_count(isolated_database) == 0
+
+
+@pytest.mark.db
+def test_database_schema_preserves_module_three_contract(isolated_database):
+    import ast
+    source = Path(__file__).resolve().parents[2] / "module_3" / "load_data.py"
+    tree = ast.parse(source.read_text())
+    original_sql = next(ast.literal_eval(node.value) for node in tree.body
+                        if isinstance(node, ast.Assign)
+                        and any(isinstance(t, ast.Name) and t.id == "create_table_sql"
+                                for t in node.targets))
+    assert load_data.create_table_sql == original_sql
+    with isolated_database() as connection:
+        columns = connection.execute(
+            "SELECT column_name, is_nullable FROM information_schema.columns "
+            "WHERE table_schema = %s AND table_name = 'applicants'",
+            (isolated_database.schema_name,),
+        ).fetchall()
+    assert {name for name, nullable in columns if nullable == "NO"} == required_fields | {"p_id"}
+    assert {name for name, _ in columns} == set(models.Applicant.__table__.columns.keys())

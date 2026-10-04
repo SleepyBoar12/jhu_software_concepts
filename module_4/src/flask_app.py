@@ -1,14 +1,17 @@
 """Display live PostgreSQL analysis results in a Flask webpage."""
 
 from datetime import datetime
-from threading import Lock, Thread
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from threading import Lock
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, current_app, jsonify, render_template
 from sqlalchemy import Numeric, and_, cast, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from .models import Applicant, SessionLocal
+from .models import Applicant, create_session_factory
+from .load_data import load_cleaned_records
 from .orm_queries import (
     format_decimal,
     question_1,
@@ -20,76 +23,44 @@ from .orm_queries import (
 )
 
 
-app = Flask(__name__)
-pull_status_lock = Lock()
-pull_job_status = {
-    "state": "idle",
-    "title": "No data pull is running",
-    "message": "The analysis is using the current PostgreSQL data.",
-    "started_at": None,
-    "finished_at": None,
-    "summary": None,
-}
+def run_pull_pipeline(*, scraper=None, cleaner=None, loader=None):
+    """Scrape, clean, and load records, with replaceable ETL dependencies.
 
-def run_pull_pipeline():
-    """Provide the pull hook replaced with deterministic Module 4 test doubles.
-
-    :raises NotImplementedError: Live collection is not included in Module 4.
-
-    A replacement returns the loader summary consumed by the background worker.
+    The scraper accepts an output directory; the cleaner reads that directory;
+    the loader accepts cleaned dictionaries and returns a committed summary.
+    Temporary HTML is removed after success or failure.
     """
-
-    raise NotImplementedError("Live data collection is not included in Module 4")
+    if scraper is None:
+        from module_2.scrape import scrape_latest_pages
+        scraper = scrape_latest_pages
+    if cleaner is None:
+        from module_2.clean import clean_data
+        cleaner = clean_data
+    if loader is None:
+        loader = load_cleaned_records
+    with TemporaryDirectory(prefix="gradcafe_pull_") as directory:
+        scraper(Path(directory))
+        records = cleaner(Path(directory))
+        if not records:
+            raise ValueError("The collected pages contained no applicant records")
+        return loader(records)
 
 
 def get_pull_status():
-    """Return a copy of the shared background-pull status."""
-
-    with pull_status_lock:
-        status = dict(pull_job_status)
+    """Return an isolated snapshot of this app's observable pull status."""
+    state = current_app.extensions["pull_state"]
+    with state["lock"]:
+        status = dict(state["status"])
         if status["summary"] is not None:
             status["summary"] = dict(status["summary"])
         return status
 
 
 def update_pull_status(**changes):
-    """Update the background-pull status while holding its lock."""
-
-    with pull_status_lock:
-        pull_job_status.update(changes)
-
-
-def pull_data_worker():
-    """Run a data pull without blocking Flask page requests."""
-
-    try:
-        summary = run_pull_pipeline()
-    except Exception:
-        app.logger.exception("Unable to pull new GradCafe data")
-        update_pull_status(
-            state="error",
-            title="The data pull did not finish",
-            message=(
-                "Live data collection is not included in Module 4. "
-                "Check the Flask terminal for details."
-            ),
-            finished_at=datetime.now().astimezone().isoformat(),
-            summary=None,
-        )
-        return
-
-    update_pull_status(
-        state="success",
-        title="GradCafe data pull completed",
-        message=(
-            f"Processed {summary['processed_rows']} records. Added "
-            f"{summary['inserted_rows']} new records and refreshed "
-            f"{summary['updated_rows']} existing records. Select Update "
-            f"Analysis to display the newly committed data."
-        ),
-        finished_at=datetime.now().astimezone().isoformat(),
-        summary=summary,
-    )
+    """Update this app's pull status while holding its lock."""
+    state = current_app.extensions["pull_state"]
+    with state["lock"]:
+        state["status"].update(changes)
 
 
 def calculate_percentage(part_count, total_count):
@@ -349,102 +320,119 @@ def build_analysis_results(session: Session):
     ]
 
 
-@app.post("/pull-data")
+def query_analysis(session_factory):
+    """Return the dictionary consumed by the analysis template.
+
+    ``analysis_results`` contains eleven dictionaries with ``number``,
+    ``question``, ``answers`` and optional ``note`` keys. Each answer contains
+    ``label`` and a formatted ``value``. The ORM retains every Module-3 field.
+    """
+    with session_factory() as session:
+        return {"analysis_results": build_analysis_results(session)}
+
+
 def pull_data():
-    """Handle POST ``/pull-data`` by starting one background worker.
+    """POST /pull-data: return JSON after commit (200), busy (409), or error (500).
 
-    :returns: Analysis HTML with HTTP 200, or HTTP 500 on an analysis error.
-        An already running pull returns a message with HTTP 409.
-
-    The route does not wait for the worker; clients poll ``/pull-status``.
+    Work runs in the request thread. Other request threads can observe status
+    and receive a busy response while scraping/loading is in progress.
     """
-
-    with pull_status_lock:
-        if pull_job_status["state"] == "running":
-            return "A data pull is already in progress.", 409
-
-        pull_job_status.update(
-            state="running",
-            title="Retrieving new GradCafe data",
-            message=(
-                "Applicant records are being added to PostgreSQL. "
-                "The analysis can be refreshed after the pull finishes."
-            ),
+    state = current_app.extensions["pull_state"]
+    with state["lock"]:
+        if state["status"]["state"] == "running":
+            return jsonify(busy=True), 409
+        state["status"].update(
+            state="running", title="Retrieving new GradCafe data",
+            message="Collecting and saving applicant records.",
             started_at=datetime.now().astimezone().isoformat(),
-            finished_at=None,
-            summary=None,
+            finished_at=None, summary=None,
         )
-
-    # A daemon thread lets Flask keep serving analysis requests concurrently.
-    worker = Thread(
-        target=pull_data_worker,
-        name="gradcafe-pull-data",
-        daemon=True,
+    try:
+        summary = run_pull_pipeline(**current_app.extensions["etl"])
+    except Exception:
+        current_app.logger.exception("Unable to pull new GradCafe data")
+        update_pull_status(
+            state="error", title="The data pull did not finish",
+            message="No changes were committed. Check the server log for details.",
+            finished_at=datetime.now().astimezone().isoformat(), summary=None,
+        )
+        return jsonify(ok=False, error="Data pull failed"), 500
+    update_pull_status(
+        state="success", title="GradCafe data pull completed",
+        message=(f"Processed {summary['processed_rows']} records. Added "
+                 f"{summary['inserted_rows']} new records and refreshed "
+                 f"{summary['updated_rows']} existing records. Select Update "
+                 "Analysis to display the newly committed data."),
+        finished_at=datetime.now().astimezone().isoformat(), summary=summary,
     )
-    worker.start()
-    return index()
+    return jsonify(ok=True), 200
 
 
-@app.get("/pull-status")
 def pull_status_endpoint():
-    """Handle GET ``/pull-status`` with a snapshot of worker progress.
-
-    :returns: HTTP 200 JSON containing ``state``, ``title``, ``message``,
-        ``started_at``, ``finished_at``, and ``summary``.
-    """
-
+    """GET /pull-status: return JSON describing the current or last pull."""
     return jsonify(get_pull_status())
 
 
-@app.get("/analysis")
-@app.get("/")
 def index():
-    """Handle GET ``/`` and ``/analysis`` by querying committed database rows.
-
-    :returns: Analysis HTML with HTTP 200, or an error page with HTTP 500
-        when SQLAlchemy cannot run the analysis.
-    """
-
+    """GET /analysis or /: render current committed analysis, or HTTP 500."""
     try:
-        with SessionLocal() as session:
-            analysis_results = build_analysis_results(session)
+        context = current_app.extensions["analysis_query"]()
     except SQLAlchemyError:
-        app.logger.exception("Unable to load applicant analysis")
+        current_app.logger.exception("Unable to load applicant analysis")
         return render_template(
-            "index.html",
-            analysis_results=[],
-            generated_at=None,
+            "index.html", analysis_results=[], generated_at=None,
             pull_status=get_pull_status(),
-            error=(
-                "The analysis could not be loaded. Confirm that PostgreSQL "
-                "is running and that the .env credentials are correct."
-            ),
+            error="The analysis could not be loaded. Check PostgreSQL and DATABASE_URL.",
         ), 500
-
-    generated_at = datetime.now().astimezone()
     return render_template(
-        "index.html",
-        analysis_results=analysis_results,
-        generated_at=generated_at,
-        pull_status=get_pull_status(),
-        error=None,
+        "index.html", **context, generated_at=datetime.now().astimezone(),
+        pull_status=get_pull_status(), error=None,
     )
 
 
-@app.post("/update-analysis")
 def update_analysis():
-    """Handle POST ``/update-analysis`` by refreshing committed results.
-
-    :returns: The same HTML response as :func:`index`, or a message with
-        HTTP 409 while a data pull is running.
-    """
-
-    with pull_status_lock:
-        if pull_job_status["state"] == "running":
-            return "Analysis cannot update while a data pull is running.", 409
-
+    """POST /update-analysis: refresh HTML, or return {busy: true} with 409."""
+    state = current_app.extensions["pull_state"]
+    with state["lock"]:
+        if state["status"]["state"] == "running":
+            return jsonify(busy=True), 409
     return index()
 
 
+def create_app(config=None, *, scraper=None, cleaner=None, loader=None, query=None):
+    """Create an independent Flask app with optional ETL and query functions.
+
+    ``config`` may override ``DATABASE_URL`` and Flask settings. ``query`` takes
+    no arguments and returns the template dictionary from :func:`query_analysis`.
+    Inject all four functions to run web tests without PostgreSQL or the network.
+    """
+    app = Flask(__name__)
+    app.config.from_mapping(config or {})
+    app.extensions["pull_state"] = {
+        "lock": Lock(),
+        "status": {
+            "state": "idle", "title": "No data pull is running",
+            "message": "The analysis is using the current PostgreSQL data.",
+            "started_at": None, "finished_at": None, "summary": None,
+        },
+    }
+    if query is None:
+        factory = create_session_factory(app.config.get("DATABASE_URL"))
+        app.extensions["database_engine"] = factory.kw["bind"]
+        query = lambda: query_analysis(factory)
+    if loader is None:
+        loader = lambda records: load_cleaned_records(
+            records, database_url=app.config.get("DATABASE_URL")
+        )
+    app.extensions["analysis_query"] = query
+    app.extensions["etl"] = {"scraper": scraper, "cleaner": cleaner, "loader": loader}
+    app.add_url_rule("/", view_func=index)
+    app.add_url_rule("/analysis", view_func=index)
+    app.add_url_rule("/pull-data", view_func=pull_data, methods=["POST"])
+    app.add_url_rule("/pull-status", view_func=pull_status_endpoint)
+    app.add_url_rule("/update-analysis", view_func=update_analysis, methods=["POST"])
+    return app
+
+
 if __name__ == "__main__":
-    app.run()
+    create_app().run()

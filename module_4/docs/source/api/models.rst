@@ -1,12 +1,16 @@
 models.py — database mapping
-============================
+================================
 
-Location: ``module_4/src/models.py``. ``Applicant`` maps the PostgreSQL
-``applicants`` table. The module constructs ``database_url`` from the five
-``PG*`` variables, creates an engine with connection health checks, and exposes
-``SessionLocal`` as its reusable session factory. ``test_connection()`` is an
-application diagnostic, rather than a pytest test; all test code remains in
-``module_4/tests``.
+``Applicant`` preserves the Module-3 PostgreSQL table contract.
+``create_session_factory`` resolves the configured PostgreSQL URL and creates
+an engine without connecting at import time. ``SessionLocal`` opens a CLI
+session and disposes its engine afterward.
 
 .. automodule:: module_4.src.models
-   :members: Applicant, test_connection
+   :members: Applicant, create_session_factory, SessionLocal, test_connection
+
+Database configuration
+--------------------------
+
+.. automodule:: module_4.src.database
+   :members: get_database_url, connection_string

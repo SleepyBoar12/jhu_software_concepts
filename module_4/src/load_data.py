@@ -1,19 +1,17 @@
 """Validate cleaned GradCafe records and upsert PostgreSQL rows by unique URL."""
 
 import json
-import os
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import psycopg
-from dotenv import load_dotenv
+from .database import connection_string
 
 
 ### Build paths relative to module_4 so the program works from any directory.
 src_directory = Path(__file__).resolve().parent
 module_4_directory = src_directory.parent
-env_file = src_directory / ".env"
 json_file = (
     module_4_directory
     / "cleaned"
@@ -22,33 +20,6 @@ json_file = (
 
 # Insert records in batches instead of holding every database operation at once.
 batch_size = 1_000
-
-
-### Load the private PostgreSQL connection settings from src/.env.
-if not env_file.is_file():
-    raise FileNotFoundError(f"Environment file not found: {env_file}")
-
-load_dotenv(env_file)
-
-required_environment_variables = (
-    "PGHOST",
-    "PGPORT",
-    "PGDATABASE",
-    "PGUSER",
-    "PGPASSWORD",
-)
-
-missing_environment_variables = [
-    variable
-    for variable in required_environment_variables
-    if not os.getenv(variable)
-]
-
-if missing_environment_variables:
-    raise RuntimeError(
-        "Missing environment variables: "
-        f"{missing_environment_variables}"
-    )
 
 
 def required_text(record, field, line_number):
@@ -302,19 +273,13 @@ WHERE ROW(
 """
 
 
-def load_records(records):
+def load_records(records, database_url=None):
     """Upsert prepared records and return a summary of database changes."""
     processed_rows = 0
     changed_rows = 0
 
     # The connection commits on success and rolls everything back on an error.
-    with psycopg.connect(
-        host=os.environ["PGHOST"],
-        port=int(os.environ["PGPORT"]),
-        dbname=os.environ["PGDATABASE"],
-        user=os.environ["PGUSER"],
-        password=os.environ["PGPASSWORD"],
-    ) as connection:
+    with psycopg.connect(connection_string(database_url)) as connection:
         with connection.cursor() as cursor:
             cursor.execute(create_table_sql)
             cursor.execute("SELECT COUNT(*) FROM applicants")
@@ -341,7 +306,7 @@ def load_records(records):
     }
 
 
-def load_cleaned_records(records):
+def load_cleaned_records(records, database_url=None):
     """Validate cleaned dictionaries and commit PostgreSQL upserts.
 
     :param records: Iterable of dictionaries using the cleaner's field names.
@@ -358,7 +323,7 @@ def load_cleaned_records(records):
         prepare_record(record, record_number)
         for record_number, record in enumerate(records, start=1)
     )
-    return load_records(prepared_records)
+    return load_records(prepared_records, database_url=database_url)
 
 
 def main():

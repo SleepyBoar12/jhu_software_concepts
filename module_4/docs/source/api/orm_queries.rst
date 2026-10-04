@@ -1,5 +1,5 @@
 orm_queries.py — ORM analysis
-=============================
+=================================
 
 Location: ``module_4/src/orm_queries.py``. These SQLAlchemy query functions are
 shared by the web analysis builder. They cover counts, GPA averages, acceptance

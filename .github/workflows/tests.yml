@@ -18,7 +18,7 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
           POSTGRES_DB: test_db
         ports:
           - 5432:5432
@@ -29,11 +29,7 @@ jobs:
           --health-retries 5
 
     env:
-      PGHOST: localhost
-      PGPORT: "5432"
-      PGDATABASE: test_db
-      PGUSER: postgres
-      PGPASSWORD: postgres
+      DATABASE_URL: postgresql://postgres:${{ github.run_id }}-${{ github.run_attempt }}@localhost:5432/test_db
 
     steps:
       - name: Check out repository
@@ -47,9 +43,5 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Prepare environment file
-        # The application requires this file; connection settings come from env.
-        run: touch src/.env
-
       - name: Run pytest suite
-        run: python -m pytest tests -v --require-postgres
+        run: python -m pytest -m "web or buttons or analysis or db or integration" --require-postgres

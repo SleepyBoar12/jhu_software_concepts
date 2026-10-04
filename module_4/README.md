@@ -1,5 +1,7 @@
 # Module 4: GradCafe tests and documentation
 
+[Published Sphinx documentation on Read the Docs](https://jhu-software-concepts-sleepyboar12.readthedocs.io/en/latest/)
+
 Geunyong Son — Johns Hopkins University, Fall 2026.
 
 Use Python 3.14 and PostgreSQL. From the repository root:
@@ -10,103 +12,75 @@ source module_4/venv/bin/activate
 python -m pip install -r module_4/requirements.txt
 ```
 
-Create a local database and `module_4/src/.env` with its connection settings:
-
-```ini
-PGHOST=localhost
-PGPORT=5432
-PGDATABASE=gradcafe
-PGUSER=postgres
-PGPASSWORD=your-local-password
-```
-
-The file must exist even when these variables are exported. This application
-uses the five `PG*` variables; `DATABASE_URL` is not read. Initialize the table:
+Set `DATABASE_URL` to your PostgreSQL connection URI, either in your shell or
+in the optional, gitignored `module_4/src/.env` file. For a local PostgreSQL
+installation using your current operating-system role:
 
 ```bash
+createdb gradcafe
+export DATABASE_URL=postgresql:///gradcafe
 python -c 'from module_4.src.load_data import load_cleaned_records; print(load_cleaned_records([]))'
-```
-
-Run commands from the repository root (`jhu_software_concepts`):
-
-```bash
-python -m pytest module_4/tests
 python -m module_4.src.flask_app
-python -m module_4.src.orm_queries
 ```
 
-Open http://127.0.0.1:5000/analysis after starting Flask. The Sphinx overview
-explains how to load the Module 2 JSON array or a JSON Lines input file.
+Use your database provider's connection URI when authentication is required;
+keep credentials out of source control. A `DATABASE_URL` passed to
+`create_app({"DATABASE_URL": ...})` overrides environment settings. Earlier
+Module-3 `PGHOST`, `PGDATABASE`, `PGUSER`, optional `PGPORT` and `PGPASSWORD`
+settings remain supported when no URL is supplied. No `.env` file is required.
 
-The tests import modules with `from module_4.src import flask_app` (and the
-corresponding names for other modules). Imports between modules in `src` use
-relative imports, such as `from .models import Applicant`. The `__init__.py`
-files are empty, and pytest does not need a `pythonpath` setting.
+Open http://127.0.0.1:5000/analysis. Pull Data uses the Module-2 scraper and
+cleaner and the real PostgreSQL loader. Live scraping requires Chrome and
+permission from the source site's robots.txt. Tests use injected functions
+and never start a browser, make live HTTP requests, or scrape the internet.
 
-Module 4 does not include live scraping or cleaning scripts. Tests use
-`monkeypatch.setattr(flask_app, "run_pull_pipeline", fake_pull)` to supply
-predictable pulls. Button tests return a fake summary; database and integration
-tests pass test records through the real loader and use an isolated PostgreSQL
-schema. Without the monkeypatch replacement, Pull Data reports that live data
-collection is unavailable. Coverage measures `module_4.src`.
+`POST /pull-data` returns `200 {"ok": true}` after commit and
+`500 {"ok": false, "error": "Data pull failed"}` on failure. While a pull is
+running, both POST routes return `409 {"busy": true}` without doing work.
+`POST /update-analysis` otherwise returns refreshed HTML. The page uses fetch
+for its buttons and exposes `data-testid="pull-data-btn"` and
+`data-testid="update-analysis-btn"`.
 
-Tests mock database connections and server startup while exercising the real
-validation, file reading, analysis, error handling, and command-line code.
-Every test uses one of these five pytest markers:
-
-| Test file | Marker | Coverage |
-| --- | --- | --- |
-| `tests/test_flask_page.py` | `web` | Flask pages, routes, errors, and server startup |
-| `tests/test_buttons.py` | `buttons` | Pull Data and Update Analysis behavior |
-| `tests/test_analysis.py` | `analysis` | SQL/ORM queries, analysis, and formatting |
-| `tests/test_db_insert.py` | `db` | Loading, validation, configuration, and database inserts |
-| `tests/test_integration_end_to_end.py` | `integration` | Pull, update, rendering, and repeated pulls |
-
-Run a selected category, such as the analysis tests:
+Run the complete suite against a test database:
 
 ```bash
-python -m pytest module_4/tests -m analysis --no-cov
+python -m pytest module_4/tests -m "web or buttons or analysis or db or integration" --require-postgres
 ```
 
-Use `--no-cov` for a selected category because the 100% coverage requirement
-applies to the full suite. Unknown markers are rejected with `--strict-markers`.
-
-The full test suite also runs the database and integration tests against an
-isolated PostgreSQL schema. The coverage requirement remains 100% for all
-Python modules in `module_4.src`.
-
-GitHub Actions runs this suite on pushes and pull requests using a PostgreSQL 16
-service. The workflow supplies `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, and
-`PGPASSWORD` for the service's `test_db` database and creates an empty `src/.env`
-to satisfy the application's environment-file requirement. No GitHub secrets
-are needed for this temporary test database.
-
-The workflow runs `python -m pytest tests -v --require-postgres` from `module_4`.
-The `--require-postgres` option makes database connection or schema creation
-failures fail the test run. Local runs without this option still skip database
-tests when PostgreSQL is unavailable. To require PostgreSQL locally, run this
-from the repository root with your database settings configured:
+From `module_4`, the exact selection command is:
 
 ```bash
-python -m pytest module_4/tests -v --require-postgres
+pytest -m "web or buttons or analysis or db or integration" --require-postgres
 ```
 
-Sphinx documentation lives in `docs/source/` and covers setup, architecture,
-API references, and the test suite. It uses autodoc and the Read the Docs theme.
-After activating the virtual environment, build it from `module_4`:
+Every collected test must carry `web`, `buttons`, `analysis`, `db`, or
+`integration`; collection fails for unmarked tests, even when marker selection
+would otherwise hide them. The suite requires 100% statement coverage.
+Use `--no-cov` for an intentionally partial run. Without `--require-postgres`,
+local database tests may skip if PostgreSQL is unavailable; CI requires them.
+
+Tests cover JSON contracts, observable busy state, every rendered percentage,
+all Answer labels, template dictionary keys, schema compatibility, inserts,
+duplicate pulls, rollback after an earlier batch was written, and an end-to-end
+pull → update → render flow. BeautifulSoup checks HTML and regex checks two
+decimal places. Each database test creates and drops its own schema.
+
+GitHub Actions starts PostgreSQL 16, supplies `DATABASE_URL`, and runs the full
+marker-selected suite. Service credentials are disposable values derived from
+the CI run. The application schema and URL uniqueness policy match Module 3.
+
+Build Sphinx HTML with warnings treated as errors:
 
 ```bash
-cd module_4
-make -C docs html
+python -m sphinx -b html -W --keep-going module_4/docs/source module_4/docs/build/html
 ```
 
-Open `docs/build/html/index.html` for the local version. The docs build
-does not require PostgreSQL or a local `.env`. The scraping and cleaning API
-pages document the real modules in `module_2`; Module 4's pull hook remains
-supplied by test doubles.
+Open `module_4/docs/build/html/index.html`. Documentation includes setup,
+architecture, autodoc for the scraper, cleaner, loader, queries, and Flask
+routes, testing, operational notes, and troubleshooting. Builds require no
+database, credentials, Chrome, or network calls from application code.
 
-The `Documentation` GitHub Actions workflow checks documentation builds on pull
-requests and pushes to `main`. Read the Docs publishing is configured by the
-repository-root `.readthedocs.yaml`, which selects Python 3.14 and
-`module_4/docs/source/conf.py`. Import the public GitHub repository into Read the Docs
-and build its `latest` version; `docs/source/publishing.rst` contains the setup steps.
+Read the Docs uses the repository-root `.readthedocs.yaml`. See the
+[publishing guide](docs/source/publishing.rst) for project setup and rebuilds,
+and [operational notes](docs/source/operations.rst) for busy-state and
+transaction policies.

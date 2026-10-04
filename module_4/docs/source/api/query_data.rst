@@ -1,5 +1,5 @@
 query_data.py — SQL analysis
-============================
+================================
 
 Location: ``module_4/src/query_data.py``. The module defines SQL expressions
 for the admissions questions and exposes helpers for printing answers and

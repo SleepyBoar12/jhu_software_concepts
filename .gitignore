@@ -15,3 +15,6 @@ __pycache__/
 # Generated Sphinx documentation
 module_4/docs/_build/
 module_4/docs/build/
+
+# Local checkout of the published Sphinx site
+module_4/docs/site/

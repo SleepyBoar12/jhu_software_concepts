@@ -3,11 +3,10 @@
 from unittest.mock import Mock
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+import re
+from bs4 import BeautifulSoup
 
 from module_4.src import flask_app, load_data
-from module_4.src.models import database_url
 
 
 def applicant_record(
@@ -72,57 +71,24 @@ analysis_rows = [
 ]
 
 
-class ImmediateThread:
-    """Run the background data pull synchronously during integration tests."""
-
-    def __init__(self, *, target, name, daemon):
-        self.target = target
-        self.name = name
-        self.daemon = daemon
-
-    def start(self):
-        self.target()
-
-
 @pytest.fixture
-def integration_client(monkeypatch, isolated_database, set_pull_state):
-    """Use the real analysis code against the isolated PostgreSQL schema."""
-    test_engine = create_engine(
-        database_url,
-        connect_args={
-            "options": (
-                f"-c search_path={isolated_database.schema_name}"
-            )
-        },
-        pool_pre_ping=True,
+def integration_client(isolated_database):
+    """Use the real loader and queries through the factory's DATABASE_URL."""
+    app = flask_app.create_app(
+        {"TESTING": True, "DATABASE_URL": isolated_database.database_url},
+        scraper=Mock(), cleaner=Mock(return_value=analysis_rows),
     )
-    test_session = sessionmaker(
-        bind=test_engine,
-        autoflush=False,
-        expire_on_commit=False,
-    )
-
-    monkeypatch.setattr(flask_app, "SessionLocal", test_session)
-    monkeypatch.setattr(flask_app, "Thread", ImmediateThread)
-    set_pull_state("idle")
-    flask_app.app.config.update(TESTING=True)
-
     try:
-        yield flask_app.app.test_client()
+        yield app.test_client()
     finally:
-        test_engine.dispose()
+        app.extensions["database_engine"].dispose()
 
 
-def configure_fake_pull(monkeypatch, record_batches):
-    """Supply test records while preserving the real loader and analysis."""
-    batches = iter(record_batches)
-    fake_pull = Mock(
-        side_effect=lambda: load_data.load_cleaned_records(next(batches))
-    )
-
-    monkeypatch.setattr(flask_app, "run_pull_pipeline", fake_pull)
-
-    return fake_pull
+def configure_fake_pull(client, record_batches):
+    """Supply cleaned records while preserving the real loader and analysis."""
+    cleaner = Mock(side_effect=record_batches)
+    client.application.extensions["etl"]["cleaner"] = cleaner
+    return cleaner
 
 
 def database_counts(connect):
@@ -139,23 +105,25 @@ def database_counts(connect):
 @pytest.mark.integration
 def test_pull_update_and_render_end_to_end(
     integration_client,
-    monkeypatch,
     isolated_database,
 ):
     fake_pull = configure_fake_pull(
-        monkeypatch,
+        integration_client,
         [analysis_rows],
     )
 
+    before = BeautifulSoup(integration_client.get("/analysis").data, "html.parser")
+    assert before.select_one(".analysis-card dd").get_text(strip=True) == "0"
     pull_response = integration_client.post("/pull-data")
 
     assert pull_response.status_code == 200
+    assert pull_response.get_json() == {"ok": True}
     assert database_counts(isolated_database) == (
         len(analysis_rows),
         len(analysis_rows),
     )
-    fake_pull.assert_called_once_with()
-    assert flask_app.pull_job_status["state"] == "success"
+    fake_pull.assert_called_once()
+    assert integration_client.get("/pull-status").get_json()["state"] == "success"
 
     update_response = integration_client.post("/update-analysis")
     assert update_response.status_code == 200
@@ -170,13 +138,18 @@ def test_pull_update_and_render_end_to_end(
     assert "100.00%" in page
     assert "3.67" in page
     assert "4.00" in page
+    soup = BeautifulSoup(page, "html.parser")
+    assert soup.select_one(".analysis-card dd").get_text(strip=True) == "1"
+    percentages = re.findall(r"[^\s]+%", soup.get_text(" ", strip=True))
+    assert len(percentages) == 3
+    assert all(re.fullmatch(r"\d+\.\d{2}%", value) for value in percentages)
+    assert len(soup.select(".answer-label")) == 11
 
 
 # Overlapping pulls update an existing URL without double counting it.
 @pytest.mark.integration
 def test_multiple_overlapping_pulls_remain_unique(
     integration_client,
-    monkeypatch,
     isolated_database,
 ):
     shared_row = applicant_record(
@@ -212,7 +185,7 @@ def test_multiple_overlapping_pulls_remain_unique(
         "3.90",
     )
     fake_pull = configure_fake_pull(
-        monkeypatch,
+        integration_client,
         [
             [shared_row, first_only_row],
             [updated_shared_row, second_only_row],
@@ -225,9 +198,9 @@ def test_multiple_overlapping_pulls_remain_unique(
     assert first_response.status_code == 200
     assert second_response.status_code == 200
     assert fake_pull.call_count == 2
-    assert flask_app.pull_job_status["state"] == "success"
-    assert flask_app.pull_job_status["summary"]["inserted_rows"] == 1
-    assert flask_app.pull_job_status["summary"]["updated_rows"] == 1
+    assert integration_client.get("/pull-status").get_json()["state"] == "success"
+    assert integration_client.get("/pull-status").get_json()["summary"]["inserted_rows"] == 1
+    assert integration_client.get("/pull-status").get_json()["summary"]["updated_rows"] == 1
     assert database_counts(isolated_database) == (3, 3)
 
     with isolated_database() as connection:

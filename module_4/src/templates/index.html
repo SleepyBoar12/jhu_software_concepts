@@ -69,6 +69,7 @@
                 >
                     <button
                         id="pull-data-button"
+                        data-testid="pull-data-btn"
                         type="submit"
                         {% if pull_status.state == "running" %}disabled{% endif %}
                     >
@@ -87,6 +88,7 @@
                 >
                     <button
                         id="update-analysis-button"
+                        data-testid="update-analysis-btn"
                         type="submit"
                         {% if pull_status.state == "running" %}disabled{% endif %}
                     >
@@ -223,15 +225,50 @@
             }
         }
 
-        pullForm.addEventListener("submit", () => {
+        pullForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
             pullButton.disabled = true;
-            pullButton.textContent = "Starting pull...";
+            updateButton.disabled = true;
+            pullButton.textContent = "Pulling data...";
+            pullStatusPanel.hidden = false;
+            pullStatusTitle.textContent = "Retrieving new GradCafe data";
+            pullStatusMessage.textContent = "Collecting and saving applicant records.";
+            try {
+                const response = await fetch(pullForm.action, {method: "POST"});
+                const result = await response.json();
+                if (!response.ok && !result.busy && !result.error) {
+                    throw new Error("Pull request failed");
+                }
+                await refreshPullStatus();
+            } catch (error) {
+                pullStatusTitle.textContent = "Pull status unavailable";
+                pullStatusMessage.textContent = "Check the server connection and refresh the page.";
+                await refreshPullStatus();
+            }
         });
 
-        updateForm.addEventListener("submit", () => {
+        updateForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
             updateButton.disabled = true;
             updateButton.textContent = "Updating analysis...";
             analysisStatusPanel.hidden = false;
+            try {
+                const response = await fetch(updateForm.action, {method: "POST"});
+                if (response.status === 409) {
+                    analysisStatusPanel.hidden = true;
+                    await refreshPullStatus();
+                } else if (response.ok) {
+                    window.location.assign({{ url_for("index") | tojson }});
+                } else {
+                    throw new Error("Analysis update failed");
+                }
+            } catch (error) {
+                analysisStatusPanel.querySelector("strong").textContent = "Analysis unavailable";
+                analysisStatusPanel.querySelector("p").textContent = "Check the server connection and try again.";
+                updateButton.disabled = false;
+            } finally {
+                updateButton.textContent = "Update Analysis";
+            }
         });
 
         if (initialPullState === "running") {
