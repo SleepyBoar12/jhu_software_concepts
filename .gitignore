@@ -11,3 +11,6 @@ __pycache__/
 *.py[cod]
 #editors and macOS
 .vscode/
+
+# Generated Sphinx documentation
+module_4/docs/_build/

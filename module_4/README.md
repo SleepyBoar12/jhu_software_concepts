@@ -1,8 +1,31 @@
-Geunyong Son
-Johns Hopkins University Fall 2026
-------------------------------------------------
-I install pytest and sphinx. Afterwards, I installed the packages
-in src/requirements.txt for the codes to run.
+# Module 4: GradCafe tests and documentation
+
+Geunyong Son — Johns Hopkins University, Fall 2026.
+
+Use Python 3.14 and PostgreSQL. From the repository root:
+
+```bash
+python3.14 -m venv module_4/venv
+source module_4/venv/bin/activate
+python -m pip install -r module_4/requirements.txt
+```
+
+Create a local database and `module_4/src/.env` with its connection settings:
+
+```ini
+PGHOST=localhost
+PGPORT=5432
+PGDATABASE=gradcafe
+PGUSER=postgres
+PGPASSWORD=your-local-password
+```
+
+The file must exist even when these variables are exported. This application
+uses the five `PG*` variables; `DATABASE_URL` is not read. Initialize the table:
+
+```bash
+python -c 'from module_4.src.load_data import load_cleaned_records; print(load_cleaned_records([]))'
+```
 
 Run commands from the repository root (`jhu_software_concepts`):
 
@@ -11,6 +34,9 @@ python -m pytest module_4/tests
 python -m module_4.src.flask_app
 python -m module_4.src.orm_queries
 ```
+
+Open http://127.0.0.1:5000/analysis after starting Flask. The Sphinx overview
+explains how to load the Module 2 JSON array or a JSON Lines input file.
 
 The tests import modules with `from module_4.src import flask_app` (and the
 corresponding names for other modules). Imports between modules in `src` use
@@ -64,3 +90,21 @@ from the repository root with your database settings configured:
 ```bash
 python -m pytest module_4/tests -v --require-postgres
 ```
+
+Sphinx documentation lives in `docs/` and covers setup, architecture, API
+references, and the test suite. Build it from the repository root:
+
+```bash
+python -m sphinx -b html -W --keep-going module_4/docs module_4/docs/_build/html
+```
+
+Open `module_4/docs/_build/html/index.html` for the local version. The docs build
+does not require PostgreSQL or a local `.env`. The scraping and cleaning API
+pages document the real modules in `module_2`; Module 4's pull hook remains
+supplied by test doubles.
+
+The `Documentation` GitHub Actions workflow checks documentation builds on pull
+requests and pushes to `main`. Read the Docs publishing is configured by the
+repository-root `.readthedocs.yaml`, which selects Python 3.14 and
+`module_4/docs/conf.py`. Import the public GitHub repository into Read the Docs
+and build its `latest` version; `docs/publishing.rst` contains the setup steps.
