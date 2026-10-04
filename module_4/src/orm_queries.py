@@ -15,7 +15,7 @@ ALL percentages, GPA, GRE quant, GRE verbal, and GRE analytical scores in 2 DECI
 from sqlalchemy import Numeric, and_, cast, func, or_, select
 from sqlalchemy.orm import Session
 
-from models import Applicant, SessionLocal
+from .models import Applicant, SessionLocal
 
 ### Include both common raw-text names for MIT because the original data varies.
 raw_university_conditions = or_(

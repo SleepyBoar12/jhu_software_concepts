@@ -4,10 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-import clean
-import flask_app
-import load_data
-import scrape
+from module_4.src import flask_app
 
 
 class ImmediateThread:
@@ -22,24 +19,12 @@ class ImmediateThread:
         self.target()
 
 
-# Test POST /pull-data returns 200 when not busy and loads mocked scraper rows.
+# Test POST /pull-data returns 200 when not busy and reports a mocked pull.
 @pytest.mark.buttons
 def test_pull_data_when_not_busy(client, monkeypatch, set_pull_state):
     set_pull_state("idle")
 
-    fake_rows = [
-        {
-            "url": "https://www.thegradcafe.com/result/test-1",
-            "program": "Computer Science, Test University",
-        }
-    ]
-    fake_scraper = Mock(
-        side_effect=lambda output_directory, page_count: [
-            output_directory / "data_1.html"
-        ]
-    )
-    fake_cleaner = Mock(return_value=fake_rows)
-    fake_loader = Mock(
+    fake_pull = Mock(
         return_value={
             "processed_rows": 1,
             "inserted_rows": 1,
@@ -47,18 +32,32 @@ def test_pull_data_when_not_busy(client, monkeypatch, set_pull_state):
         }
     )
 
-    monkeypatch.setattr(scrape, "scrape_latest_pages", fake_scraper)
-    monkeypatch.setattr(clean, "clean_data", fake_cleaner)
-    monkeypatch.setattr(load_data, "load_cleaned_records", fake_loader)
+    monkeypatch.setattr(flask_app, "run_pull_pipeline", fake_pull)
     monkeypatch.setattr(flask_app, "Thread", ImmediateThread)
 
     response = client.post("/pull-data")
 
     assert response.status_code == 200
-    fake_scraper.assert_called_once()
-    fake_cleaner.assert_called_once()
-    fake_loader.assert_called_once_with(fake_rows)
+    fake_pull.assert_called_once_with()
     assert flask_app.pull_job_status["state"] == "success"
+    assert flask_app.pull_job_status["summary"] == fake_pull.return_value
+    assert "Processed 1 records" in flask_app.pull_job_status["message"]
+
+
+# A pull without the test replacement reports the missing live collector.
+@pytest.mark.buttons
+def test_pull_data_without_live_collection(client, monkeypatch, set_pull_state):
+    set_pull_state("idle")
+    monkeypatch.setattr(flask_app, "Thread", ImmediateThread)
+
+    response = client.post("/pull-data")
+
+    assert response.status_code == 200
+    status = client.get("/pull-status").get_json()
+    assert status["state"] == "error"
+    assert status["summary"] is None
+    assert status["finished_at"] is not None
+    assert "Live data collection is not included" in status["message"]
 
 
 # Test POST /update-analysis returns 200 when not busy.

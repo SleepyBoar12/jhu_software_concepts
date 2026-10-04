@@ -1,8 +1,6 @@
 """Display live PostgreSQL analysis results in a Flask webpage."""
 
 from datetime import datetime
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from threading import Lock, Thread
 
 from flask import Flask, jsonify, render_template
@@ -10,8 +8,8 @@ from sqlalchemy import Numeric, and_, cast, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from models import Applicant, SessionLocal
-from orm_queries import (
+from .models import Applicant, SessionLocal
+from .orm_queries import (
     format_decimal,
     question_1,
     question_4,
@@ -34,25 +32,9 @@ pull_job_status = {
 }
 
 def run_pull_pipeline():
-    """Scrape, clean, and upsert the latest GradCafe records."""
+    """Pull entry point replaced with monkeypatch in Module 4 tests."""
 
-    # Import scraping dependencies only after the user presses Pull Data.
-    from clean import clean_data
-    from load_data import load_cleaned_records
-    from scrape import scrape_latest_pages
-
-    # Temporary HTML is removed automatically after the records are cleaned.
-    with TemporaryDirectory(prefix="gradcafe_pull_") as temporary_directory:
-        temporary_path = Path(temporary_directory)
-        saved_pages = scrape_latest_pages(temporary_path, page_count=5)
-        cleaned_records = clean_data(temporary_path)
-
-    if not cleaned_records:
-        raise RuntimeError("The scraped pages contained no applicant records")
-
-    summary = load_cleaned_records(cleaned_records)
-    summary["scraped_pages"] = len(saved_pages)
-    return summary
+    raise NotImplementedError("Live data collection is not included in Module 4")
 
 
 def get_pull_status():
@@ -73,7 +55,7 @@ def update_pull_status(**changes):
 
 
 def pull_data_worker():
-    """Run the slow scraping pipeline without blocking Flask page requests."""
+    """Run a data pull without blocking Flask page requests."""
 
     try:
         summary = run_pull_pipeline()
@@ -83,8 +65,8 @@ def pull_data_worker():
             state="error",
             title="The data pull did not finish",
             message=(
-                "Check the Flask terminal and confirm that Chrome, the "
-                "internet connection, and PostgreSQL are available."
+                "Live data collection is not included in Module 4. "
+                "Check the Flask terminal for details."
             ),
             finished_at=datetime.now().astimezone().isoformat(),
             summary=None,
@@ -95,8 +77,7 @@ def pull_data_worker():
         state="success",
         title="GradCafe data pull completed",
         message=(
-            f"Checked {summary['scraped_pages']} pages and processed "
-            f"{summary['processed_rows']} records. Added "
+            f"Processed {summary['processed_rows']} records. Added "
             f"{summary['inserted_rows']} new records and refreshed "
             f"{summary['updated_rows']} existing records. Select Update "
             f"Analysis to display the newly committed data."
@@ -375,8 +356,8 @@ def pull_data():
             state="running",
             title="Retrieving new GradCafe data",
             message=(
-                "The newest pages are being scraped, cleaned, and added to "
-                "PostgreSQL. You can update the analysis while this continues."
+                "Applicant records are being added to PostgreSQL. "
+                "The analysis can be refreshed after the pull finishes."
             ),
             started_at=datetime.now().astimezone().isoformat(),
             finished_at=None,

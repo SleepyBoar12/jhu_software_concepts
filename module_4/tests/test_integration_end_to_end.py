@@ -6,10 +6,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import clean
-import flask_app
-from models import database_url
-import scrape
+from module_4.src import flask_app, load_data
+from module_4.src.models import database_url
 
 
 def applicant_record(
@@ -23,7 +21,7 @@ def applicant_record(
     degree="Masters",
     comments=None,
 ):
-    """Build one complete fake record in the cleaner's output format."""
+    """Build one complete test record in the loader's input format."""
     return {
         "program": f"{program}, {university}",
         "comments": comments,
@@ -115,20 +113,16 @@ def integration_client(monkeypatch, isolated_database, set_pull_state):
         test_engine.dispose()
 
 
-def configure_fake_scraper(monkeypatch, record_batches):
-    """Fake external scraping while preserving the real loader and analysis."""
-    fake_scraper = Mock(
-        side_effect=lambda output_directory, page_count: [
-            output_directory / "data_1.html",
-            output_directory / "data_2.html",
-        ]
+def configure_fake_pull(monkeypatch, record_batches):
+    """Supply test records while preserving the real loader and analysis."""
+    batches = iter(record_batches)
+    fake_pull = Mock(
+        side_effect=lambda: load_data.load_cleaned_records(next(batches))
     )
-    fake_cleaner = Mock(side_effect=record_batches)
 
-    monkeypatch.setattr(scrape, "scrape_latest_pages", fake_scraper)
-    monkeypatch.setattr(clean, "clean_data", fake_cleaner)
+    monkeypatch.setattr(flask_app, "run_pull_pipeline", fake_pull)
 
-    return fake_scraper, fake_cleaner
+    return fake_pull
 
 
 def database_counts(connect):
@@ -148,7 +142,7 @@ def test_pull_update_and_render_end_to_end(
     monkeypatch,
     isolated_database,
 ):
-    fake_scraper, fake_cleaner = configure_fake_scraper(
+    fake_pull = configure_fake_pull(
         monkeypatch,
         [analysis_rows],
     )
@@ -160,8 +154,8 @@ def test_pull_update_and_render_end_to_end(
         len(analysis_rows),
         len(analysis_rows),
     )
-    fake_scraper.assert_called_once()
-    fake_cleaner.assert_called_once()
+    fake_pull.assert_called_once_with()
+    assert flask_app.pull_job_status["state"] == "success"
 
     update_response = integration_client.post("/update-analysis")
     assert update_response.status_code == 200
@@ -217,7 +211,7 @@ def test_multiple_overlapping_pulls_remain_unique(
         "International",
         "3.90",
     )
-    configure_fake_scraper(
+    fake_pull = configure_fake_pull(
         monkeypatch,
         [
             [shared_row, first_only_row],
@@ -230,6 +224,10 @@ def test_multiple_overlapping_pulls_remain_unique(
 
     assert first_response.status_code == 200
     assert second_response.status_code == 200
+    assert fake_pull.call_count == 2
+    assert flask_app.pull_job_status["state"] == "success"
+    assert flask_app.pull_job_status["summary"]["inserted_rows"] == 1
+    assert flask_app.pull_job_status["summary"]["updated_rows"] == 1
     assert database_counts(isolated_database) == (3, 3)
 
     with isolated_database() as connection:

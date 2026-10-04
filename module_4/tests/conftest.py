@@ -1,12 +1,76 @@
 from contextlib import nullcontext
 import os
+import runpy
+import sys
+from unittest.mock import MagicMock, Mock
 from uuid import uuid4
 
 import psycopg
 from psycopg import sql
 import pytest
 
-import flask_app
+from module_4.src import flask_app
+
+
+@pytest.fixture
+def valid_applicant():
+    """Provide a complete input record for loader unit tests."""
+    return {
+        "program": "Computer Science, Test University",
+        "comments": "Example applicant",
+        "date_added": "Oct 03, 2026",
+        "url": "https://www.thegradcafe.com/result/unit-test-1",
+        "applicant_status": "Accepted",
+        "program_start": "Fall 2026",
+        "student_type": "International",
+        "gre_score": "168",
+        "gre_v_score": "160",
+        "degree": "Masters",
+        "gpa": "3.90",
+        "gre_aw": "4.5",
+        "llm-generated-program": "Computer Science",
+        "llm-generated-university": "Test University",
+    }
+
+
+@pytest.fixture
+def fake_pg_environment(monkeypatch):
+    """Use predictable connection settings in tests with mocked databases."""
+    options = {
+        "PGHOST": "localhost",
+        "PGPORT": "5432",
+        "PGDATABASE": "test_applicants",
+        "PGUSER": "test_user",
+        "PGPASSWORD": "test_password",
+    }
+    for name, value in options.items():
+        monkeypatch.setenv(name, value)
+    return options
+
+
+@pytest.fixture
+def mock_database(monkeypatch, fake_pg_environment):
+    """Mock the PostgreSQL boundary, including its context managers."""
+    connection = MagicMock(spec=psycopg.Connection)
+    cursor = MagicMock(spec=psycopg.Cursor)
+    connection.__enter__.return_value = connection
+    connection.cursor.return_value = cursor
+    cursor.__enter__.return_value = cursor
+    connect = Mock(return_value=connection)
+    monkeypatch.setattr(psycopg, "connect", connect)
+    return connect, connection, cursor
+
+
+@pytest.fixture
+def run_module(monkeypatch):
+    """Execute a module's real startup code without replacing its functions."""
+    def run(module, *, run_name="__main__"):
+        # Restore the imported module afterward so later tests keep their state.
+        with monkeypatch.context() as patch:
+            patch.delitem(sys.modules, module.__name__)
+            return runpy.run_module(module.__name__, run_name=run_name)
+
+    return run
 
 
 @pytest.fixture
@@ -67,7 +131,7 @@ def set_pull_state(monkeypatch):
 @pytest.fixture
 def isolated_database(monkeypatch):
     """Create a temporary PostgreSQL schema and remove it after the test."""
-    import load_data
+    from module_4.src import load_data
 
     real_connect = psycopg.connect
     connection_options = {

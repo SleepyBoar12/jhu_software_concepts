@@ -1,6 +1,10 @@
+from unittest.mock import Mock
+
 import pytest
 from flask import Flask
-import flask_app
+from sqlalchemy.exc import SQLAlchemyError
+
+from module_4.src import flask_app
 
 
 # Test that a Flask app is created and configured for testing.
@@ -48,3 +52,25 @@ def test_render(client):
     # Page text includes "Analysis" and at least one "Answer:".
     assert "Analysis" in page
     assert "Answer:" in page
+
+
+@pytest.mark.web
+def test_analysis_database_failure_returns_error_page(client, monkeypatch):
+    monkeypatch.setattr(
+        flask_app, "SessionLocal", Mock(side_effect=SQLAlchemyError("Database unavailable")),
+    )
+
+    response = client.get("/analysis")
+
+    assert response.status_code == 500
+    assert "The analysis could not be loaded" in response.get_data(as_text=True)
+
+
+@pytest.mark.web
+def test_flask_command_line_starts_server(monkeypatch, run_module):
+    run_server = Mock()
+    monkeypatch.setattr(Flask, "run", run_server)
+
+    run_module(flask_app)
+
+    run_server.assert_called_once_with()
