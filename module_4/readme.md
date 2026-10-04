@@ -48,3 +48,19 @@ applies to the full suite. Unknown markers are rejected with `--strict-markers`.
 The full test suite also runs the database and integration tests against an
 isolated PostgreSQL schema. The coverage requirement remains 100% for all
 Python modules in `module_4.src`.
+
+GitHub Actions runs this suite on pushes and pull requests using a PostgreSQL 16
+service. The workflow supplies `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, and
+`PGPASSWORD` for the service's `test_db` database and creates an empty `src/.env`
+to satisfy the application's environment-file requirement. No GitHub secrets
+are needed for this temporary test database.
+
+The workflow runs `python -m pytest tests -v --require-postgres` from `module_4`.
+The `--require-postgres` option makes database connection or schema creation
+failures fail the test run. Local runs without this option still skip database
+tests when PostgreSQL is unavailable. To require PostgreSQL locally, run this
+from the repository root with your database settings configured:
+
+```bash
+python -m pytest module_4/tests -v --require-postgres
+```

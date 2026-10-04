@@ -1,0 +1,19 @@
+Terminal Coverage Summary
+
+$pytest -m "web or buttons or analysis or db or integration"
+................................................................. [100%]
+============================ tests coverage =============================
+___________ coverage: platform darwin, python 3.14.0-final-0 ____________
+
+Name                 Stmts   Miss  Cover   Missing
+--------------------------------------------------
+src/__init__.py          0      0   100%
+src/flask_app.py        99      0   100%
+src/load_data.py       102      0   100%
+src/models.py           42      0   100%
+src/orm_queries.py      56      0   100%
+src/query_data.py       67      0   100%
+--------------------------------------------------
+TOTAL                  366      0   100%
+Required test coverage of 100% reached. Total coverage: 100.00%
+65 passed in 0.47s

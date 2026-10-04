@@ -12,6 +12,14 @@ import pytest
 from module_4.src import flask_app
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--require-postgres",
+        action="store_true",
+        help="Fail database tests instead of skipping when PostgreSQL is unavailable.",
+    )
+
+
 @pytest.fixture
 def valid_applicant():
     """Provide a complete input record for loader unit tests."""
@@ -129,7 +137,7 @@ def set_pull_state(monkeypatch):
 
 
 @pytest.fixture
-def isolated_database(monkeypatch):
+def isolated_database(monkeypatch, request):
     """Create a temporary PostgreSQL schema and remove it after the test."""
     from module_4.src import load_data
 
@@ -147,6 +155,8 @@ def isolated_database(monkeypatch):
     try:
         admin_connection = real_connect(**connection_options)
     except psycopg.OperationalError as error:
+        if request.config.getoption("--require-postgres"):
+            pytest.fail(f"PostgreSQL is unavailable: {error}", pytrace=False)
         pytest.skip(f"PostgreSQL is unavailable: {error}")
 
     admin_connection.autocommit = True
@@ -159,6 +169,11 @@ def isolated_database(monkeypatch):
             )
     except psycopg.Error as error:
         admin_connection.close()
+        if request.config.getoption("--require-postgres"):
+            pytest.fail(
+                f"Cannot create an isolated PostgreSQL schema: {error}",
+                pytrace=False,
+            )
         pytest.skip(f"Cannot create an isolated PostgreSQL schema: {error}")
 
     def connect_to_test_schema(*args, **kwargs):
