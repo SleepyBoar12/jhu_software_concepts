@@ -11,12 +11,12 @@ import psycopg
 from dotenv import load_dotenv
 
 
-### Build paths relative to this file so the program works from any directory.
-module_3_directory = Path(__file__).resolve().parent
-env_file = module_3_directory / ".env"
+### Build paths relative to module_4 so the program works from any directory.
+src_directory = Path(__file__).resolve().parent
+module_4_directory = src_directory.parent
+env_file = src_directory / ".env"
 json_file = (
-    module_3_directory.parent
-    / "module_2"
+    module_4_directory
     / "cleaned"
     / "llm_extended_applicant_data.json"
 )
@@ -25,7 +25,7 @@ json_file = (
 batch_size = 1_000
 
 
-### Load the private PostgreSQL connection settings from module_3/.env.
+### Load the private PostgreSQL connection settings from src/.env.
 if not env_file.is_file():
     raise FileNotFoundError(f"Environment file not found: {env_file}")
 

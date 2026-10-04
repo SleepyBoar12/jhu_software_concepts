@@ -56,8 +56,8 @@
                 </p>
                 <p class="pull-note">
                     <strong>Update Analysis</strong> runs all analysis queries
-                    again using the latest committed PostgreSQL data. It can
-                    run while Pull Data continues in the background.
+                    again using the latest committed PostgreSQL data. It is
+                    available after Pull Data finishes.
                 </p>
             </div>
 
@@ -82,10 +82,14 @@
 
                 <form
                     id="update-analysis-form"
-                    action="{{ url_for('index') }}"
-                    method="get"
+                    action="{{ url_for('update_analysis') }}"
+                    method="post"
                 >
-                    <button id="update-analysis-button" type="submit">
+                    <button
+                        id="update-analysis-button"
+                        type="submit"
+                        {% if pull_status.state == "running" %}disabled{% endif %}
+                    >
                         Update Analysis
                     </button>
                 </form>
@@ -147,6 +151,7 @@
                             </p>
                             <h3>{{ result.question }}</h3>
 
+                            <p class="answer-label">Answer:</p>
                             <dl class="answer-grid">
                                 {% for answer in result.answers %}
                                     <div class="answer">
@@ -194,6 +199,7 @@
 
             const isRunning = status.state === "running";
             pullButton.disabled = isRunning;
+            updateButton.disabled = isRunning;
             pullButton.textContent = isRunning ? "Pulling data..." : "Pull Data";
 
             if (isRunning) {

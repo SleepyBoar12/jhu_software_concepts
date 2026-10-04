@@ -223,6 +223,40 @@ def format_value(value):
     return str(value)
 
 
+applicant_fields = (
+    "p_id",
+    "program",
+    "comments",
+    "date_added",
+    "url",
+    "status",
+    "term",
+    "us_or_international",
+    "gpa",
+    "gre",
+    "gre_v",
+    "gre_aw",
+    "degree",
+    "llm_generated_program",
+    "llm_generated_university",
+)
+
+
+def get_applicant_by_url(cursor, applicant_url):
+    """Return one applicant as a dictionary, or None when it is not found."""
+    selected_fields = ", ".join(applicant_fields)
+    cursor.execute(
+        f"SELECT {selected_fields} FROM applicants WHERE url = %s",
+        (applicant_url,),
+    )
+    row = cursor.fetchone()
+
+    if row is None:
+        return None
+
+    return dict(zip(applicant_fields, row, strict=True))
+
+
 def run_query(cursor, question, sql_expression, parameters=()):
     """Execute one SQL expression and print its column names and results."""
     cursor.execute(sql_expression, parameters)

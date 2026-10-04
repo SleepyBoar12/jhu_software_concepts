@@ -1,12 +1,11 @@
 """Display live PostgreSQL analysis results in a Flask webpage."""
 
-import sys
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Lock, Thread
 
-from flask import Flask, jsonify, redirect, render_template, url_for
+from flask import Flask, jsonify, render_template
 from sqlalchemy import Numeric, and_, cast, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -24,7 +23,6 @@ from orm_queries import (
 
 
 app = Flask(__name__)
-repository_root = Path(__file__).resolve().parent.parent
 pull_status_lock = Lock()
 pull_job_status = {
     "state": "idle",
@@ -35,20 +33,13 @@ pull_job_status = {
     "summary": None,
 }
 
-
-### Make module_2 importable when Flask starts from inside module_3.
-if str(repository_root) not in sys.path:
-    sys.path.insert(0, str(repository_root))
-
-
 def run_pull_pipeline():
     """Scrape, clean, and upsert the latest GradCafe records."""
 
     # Import scraping dependencies only after the user presses Pull Data.
-    from module_2.clean import clean_data
-    from module_2.scrape import scrape_latest_pages
-
+    from clean import clean_data
     from load_data import load_cleaned_records
+    from scrape import scrape_latest_pages
 
     # Temporary HTML is removed automatically after the records are cleaned.
     with TemporaryDirectory(prefix="gradcafe_pull_") as temporary_directory:
@@ -378,7 +369,7 @@ def pull_data():
 
     with pull_status_lock:
         if pull_job_status["state"] == "running":
-            return redirect(url_for("index"))
+            return "A data pull is already in progress.", 409
 
         pull_job_status.update(
             state="running",
@@ -399,7 +390,7 @@ def pull_data():
         daemon=True,
     )
     worker.start()
-    return redirect(url_for("index"))
+    return index()
 
 
 @app.get("/pull-status")
@@ -409,6 +400,7 @@ def pull_status_endpoint():
     return jsonify(get_pull_status())
 
 
+@app.get("/analysis")
 @app.get("/")
 def index():
     """Query PostgreSQL and render a fresh analysis page on every request."""
@@ -437,6 +429,17 @@ def index():
         pull_status=get_pull_status(),
         error=None,
     )
+
+
+@app.post("/update-analysis")
+def update_analysis():
+    """Refresh the analysis unless a data pull is still running."""
+
+    with pull_status_lock:
+        if pull_job_status["state"] == "running":
+            return "Analysis cannot update while a data pull is running.", 409
+
+    return index()
 
 
 if __name__ == "__main__":
