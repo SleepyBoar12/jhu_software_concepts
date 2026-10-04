@@ -7,7 +7,8 @@ import sys
 from unittest.mock import patch
 
 
-repository_root = Path(__file__).resolve().parents[2]
+repository_root = Path(__file__).resolve().parents[3]
+# Import through module_4.src so the application's relative imports resolve.
 sys.path.insert(0, str(repository_root))
 
 project = "GradCafe Application"
@@ -20,19 +21,17 @@ extensions = [
     "sphinx.ext.viewcode",
 ]
 root_doc = "index"
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["Thumbs.db", ".DS_Store"]
 autodoc_member_order = "bysource"
 autodoc_typehints = "none"
 # Selenium and BeautifulSoup are only needed to execute the Module 2 ETL.
 autodoc_mock_imports = ["selenium", "bs4"]
 
-html_theme = "alabaster"
+html_theme = "sphinx_rtd_theme"
 html_title = "GradCafe application documentation"
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
 html_theme_options = {
-    "github_user": "SleepyBoar12",
-    "github_repo": "jhu_software_concepts",
-    "github_button": False,
+    "navigation_depth": 3,
 }
 
 # The application checks for src/.env at import time. Give its real modules

@@ -1,5 +1,4 @@
-### Take the cleaned, LLM-extended applicant data and load it into PostgreSQL.
-### The applicant URL is unique, so rerunning this file will not create duplicates.
+"""Validate cleaned GradCafe records and upsert PostgreSQL rows by unique URL."""
 
 import json
 import os
@@ -147,7 +146,13 @@ def prepare_record(record, line_number):
 
 
 def read_records(input_file):
-    """Read and validate the newline-delimited JSON file one line at a time."""
+    """Read and validate a JSON Lines file, skipping blank lines.
+
+    :param input_file: :class:`pathlib.Path` containing one JSON object per line.
+    :yields: Prepared records accepted by :func:`load_records`.
+    :raises FileNotFoundError: The input file does not exist.
+    :raises ValueError: A line contains invalid JSON or invalid applicant data.
+    """
     if not input_file.is_file():
         raise FileNotFoundError(f"Applicant data not found: {input_file}")
 
@@ -337,7 +342,17 @@ def load_records(records):
 
 
 def load_cleaned_records(records):
-    """Validate cleaned dictionaries and upsert them into PostgreSQL."""
+    """Validate cleaned dictionaries and commit PostgreSQL upserts.
+
+    :param records: Iterable of dictionaries using the cleaner's field names.
+    :returns: Dictionary with ``processed_rows``, ``inserted_rows``,
+        ``updated_rows``, and ``total_rows`` counts.
+    :raises ValueError: Required fields, dates, or numeric scores are invalid.
+
+    The loader creates the table when needed. Repeated URLs update existing
+    applicants instead of creating duplicate rows; database errors roll back
+    the transaction and propagate to the caller.
+    """
 
     prepared_records = (
         prepare_record(record, record_number)

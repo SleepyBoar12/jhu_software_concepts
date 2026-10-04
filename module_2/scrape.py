@@ -65,7 +65,15 @@ def create_driver(headless=True):
 
 
 def scrape_data(driver, survey_url, page_count, output_directory):
-    """Save the requested number of GradCafe pages and return their paths."""
+    """Save GradCafe survey pages as UTF-8 HTML and close the driver on exit.
+
+    :param driver: Selenium driver used to navigate the survey.
+    :param survey_url: URL of the first survey page.
+    :param page_count: Number of pages to save.
+    :param output_directory: Directory for numbered ``data_*.html`` files.
+    :returns: List of saved :class:`pathlib.Path` objects.
+    :raises RuntimeError: Navigation or page extraction fails.
+    """
 
     output_directory = Path(output_directory)
     output_directory.mkdir(parents=True, exist_ok=True)

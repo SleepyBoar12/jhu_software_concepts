@@ -4,17 +4,21 @@ Build and publish documentation
 Local build
 -----------
 
-Install ``module_4/requirements.txt`` and run from the repository root:
+Install ``module_4/requirements.txt``, activate the virtual environment, and
+build from ``module_4``:
 
 .. code-block:: bash
 
-   python -m sphinx -b html -W --keep-going module_4/docs module_4/docs/_build/html
+   cd module_4
+   make -C docs html
 
-Open ``module_4/docs/_build/html/index.html``. ``-W`` makes warnings fail the
-build, including broken autodoc imports. ``_build`` is ignored by Git; commit
-the Sphinx source and configuration.
+Open ``docs/build/html/index.html``. The Makefile passes ``-W --keep-going``
+so warnings fail the build, including broken autodoc imports. ``docs/build``
+is ignored by Git; commit ``docs/source``, the build scripts, and configuration.
+On Windows, run ``docs\make.bat html``.
 
-``conf.py`` enables autodoc and links to highlighted Python source with viewcode.
+``docs/source/conf.py`` selects ``sphinx_rtd_theme``, enables autodoc, and links
+to highlighted Python source with viewcode.
 It imports the real Module 4 modules under
 temporary documentation-only environment settings. During those imports it
 bypasses the local environment-file check and disables dotenv loading. It
@@ -29,7 +33,7 @@ The repository remote is
 ``git@github.com:SleepyBoar12/jhu_software_concepts.git``. Read the Docs uses
 ``.readthedocs.yaml`` at the repository root. It installs
 ``module_4/requirements.txt`` with Python 3.14 on Ubuntu 24.04 and builds
-``module_4/docs/conf.py`` with warnings treated as errors.
+``module_4/docs/source/conf.py`` with warnings treated as errors.
 
 1. Commit and push the documentation sources and ``.readthedocs.yaml`` to
    ``main``. The repository must be public for the community hosting service.

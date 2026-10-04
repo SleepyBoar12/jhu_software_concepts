@@ -91,14 +91,16 @@ from the repository root with your database settings configured:
 python -m pytest module_4/tests -v --require-postgres
 ```
 
-Sphinx documentation lives in `docs/` and covers setup, architecture, API
-references, and the test suite. Build it from the repository root:
+Sphinx documentation lives in `docs/source/` and covers setup, architecture,
+API references, and the test suite. It uses autodoc and the Read the Docs theme.
+After activating the virtual environment, build it from `module_4`:
 
 ```bash
-python -m sphinx -b html -W --keep-going module_4/docs module_4/docs/_build/html
+cd module_4
+make -C docs html
 ```
 
-Open `module_4/docs/_build/html/index.html` for the local version. The docs build
+Open `docs/build/html/index.html` for the local version. The docs build
 does not require PostgreSQL or a local `.env`. The scraping and cleaning API
 pages document the real modules in `module_2`; Module 4's pull hook remains
 supplied by test doubles.
@@ -106,5 +108,5 @@ supplied by test doubles.
 The `Documentation` GitHub Actions workflow checks documentation builds on pull
 requests and pushes to `main`. Read the Docs publishing is configured by the
 repository-root `.readthedocs.yaml`, which selects Python 3.14 and
-`module_4/docs/conf.py`. Import the public GitHub repository into Read the Docs
-and build its `latest` version; `docs/publishing.rst` contains the setup steps.
+`module_4/docs/source/conf.py`. Import the public GitHub repository into Read the Docs
+and build its `latest` version; `docs/source/publishing.rst` contains the setup steps.

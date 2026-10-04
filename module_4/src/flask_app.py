@@ -32,7 +32,12 @@ pull_job_status = {
 }
 
 def run_pull_pipeline():
-    """Pull entry point replaced with monkeypatch in Module 4 tests."""
+    """Provide the pull hook replaced with deterministic Module 4 test doubles.
+
+    :raises NotImplementedError: Live collection is not included in Module 4.
+
+    A replacement returns the loader summary consumed by the background worker.
+    """
 
     raise NotImplementedError("Live data collection is not included in Module 4")
 
@@ -346,7 +351,13 @@ def build_analysis_results(session: Session):
 
 @app.post("/pull-data")
 def pull_data():
-    """Start one background data pull and return to the page immediately."""
+    """Handle POST ``/pull-data`` by starting one background worker.
+
+    :returns: Analysis HTML with HTTP 200, or HTTP 500 on an analysis error.
+        An already running pull returns a message with HTTP 409.
+
+    The route does not wait for the worker; clients poll ``/pull-status``.
+    """
 
     with pull_status_lock:
         if pull_job_status["state"] == "running":
@@ -376,7 +387,11 @@ def pull_data():
 
 @app.get("/pull-status")
 def pull_status_endpoint():
-    """Provide live pull progress for the webpage's status display."""
+    """Handle GET ``/pull-status`` with a snapshot of worker progress.
+
+    :returns: HTTP 200 JSON containing ``state``, ``title``, ``message``,
+        ``started_at``, ``finished_at``, and ``summary``.
+    """
 
     return jsonify(get_pull_status())
 
@@ -384,7 +399,11 @@ def pull_status_endpoint():
 @app.get("/analysis")
 @app.get("/")
 def index():
-    """Query PostgreSQL and render a fresh analysis page on every request."""
+    """Handle GET ``/`` and ``/analysis`` by querying committed database rows.
+
+    :returns: Analysis HTML with HTTP 200, or an error page with HTTP 500
+        when SQLAlchemy cannot run the analysis.
+    """
 
     try:
         with SessionLocal() as session:
@@ -414,7 +433,11 @@ def index():
 
 @app.post("/update-analysis")
 def update_analysis():
-    """Refresh the analysis unless a data pull is still running."""
+    """Handle POST ``/update-analysis`` by refreshing committed results.
+
+    :returns: The same HTML response as :func:`index`, or a message with
+        HTTP 409 while a data pull is running.
+    """
 
     with pull_status_lock:
         if pull_job_status["state"] == "running":

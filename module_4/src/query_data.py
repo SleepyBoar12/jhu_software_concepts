@@ -243,7 +243,12 @@ applicant_fields = (
 
 
 def get_applicant_by_url(cursor, applicant_url):
-    """Return one applicant as a dictionary, or None when it is not found."""
+    """Select an applicant using a bound URL parameter.
+
+    :param cursor: Open psycopg cursor for the configured applicants table.
+    :param applicant_url: Exact source URL identifying the applicant.
+    :returns: Applicant dictionary, or ``None`` when the URL has no match.
+    """
     selected_fields = ", ".join(applicant_fields)
     cursor.execute(
         f"SELECT {selected_fields} FROM applicants WHERE url = %s",

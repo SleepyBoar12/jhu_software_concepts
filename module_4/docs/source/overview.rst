@@ -15,7 +15,11 @@ PostgreSQL 16. Run the commands below from the repository root.
    ├── pytest.ini        Markers and the 100% coverage requirement
    ├── requirements.txt  Runtime, test, and Sphinx dependencies
    ├── README.md         Quick-start instructions
-   └── docs/             Sphinx source, conf.py, and API reference
+   └── docs/
+       ├── Makefile      Build with make -C docs html from module_4
+       ├── make.bat      Windows build command
+       ├── source/       conf.py, guides, and autodoc API pages
+       └── build/        Generated HTML; ignored by Git
 
 .. code-block:: bash
 
@@ -131,12 +135,14 @@ Run tests and build docs
 .. code-block:: bash
 
    python -m pytest module_4/tests -v --require-postgres
-   python -m sphinx -b html -W --keep-going module_4/docs module_4/docs/_build/html
+   cd module_4
+   make -C docs html
 
 Database tests use temporary schemas in the configured database. Use a test
 database and a role allowed to create schemas. The documentation build needs
 the installed Python dependencies, but no PostgreSQL server or credentials.
-Open ``module_4/docs/_build/html/index.html`` after building.
+Open ``docs/build/html/index.html`` after building from ``module_4``.
+On Windows, use ``docs\make.bat html`` instead of ``make``.
 
 Troubleshooting
 ---------------

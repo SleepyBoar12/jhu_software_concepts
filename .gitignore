@@ -14,3 +14,4 @@ __pycache__/
 
 # Generated Sphinx documentation
 module_4/docs/_build/
+module_4/docs/build/

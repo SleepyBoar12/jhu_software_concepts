@@ -1,9 +1,3 @@
-from bs4 import BeautifulSoup as bs
-from pathlib import Path
-import json
-import re
-
-### I used GPT to help create after specifying parts and bit of the requirement
 """
 Convert the GradCafe HTML pages saved by scrape.py into structured JSON records.
 
@@ -14,6 +8,13 @@ Each applicant is displayed using more than one table row:
 
 The parser groups those rows together before creating one dictionary per applicant.
 """
+
+from bs4 import BeautifulSoup as bs
+from pathlib import Path
+import json
+import re
+
+### I used GPT to help create after specifying parts and bit of the requirement
 
 
 ### Build paths relative to this file so the script works whether it is run from the
@@ -176,7 +177,12 @@ def _parse_html_file(html_file):
 
 ### The main function that brings everything together
 def clean_data(input_directory=html_path):
-    """Parse every data_*.html file from one directory."""
+    """Parse saved survey files in numeric page order.
+
+    :param input_directory: Directory containing ``data_*.html`` files.
+    :returns: List of applicant dictionaries ready for enrichment or loading.
+    :raises FileNotFoundError: The directory or matching files are missing.
+    """
     input_directory = Path(input_directory)
 
     if not input_directory.exists():
