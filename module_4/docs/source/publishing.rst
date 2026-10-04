@@ -53,6 +53,10 @@ and `configuration reference <https://docs.readthedocs.com/platform/stable/confi
 Troubleshooting publication
 -------------------------------
 
+* Read the Docs Community needs a public source repository. If cloning fails
+  with an authentication error, use a public documentation-only repository or
+  deliberately change the source repository's visibility. Making the source
+  repository public exposes its files and Git history, not just the docs.
 * Verify that the build uses the intended branch and commit. A successful old
   build does not establish that the new application APIs are documented.
 * Missing modules usually mean the requirements installation failed; inspect

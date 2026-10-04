@@ -16,6 +16,8 @@ root_doc = "index"
 exclude_patterns = ["Thumbs.db", ".DS_Store"]
 autodoc_member_order = "bysource"
 autodoc_typehints = "none"
+# Keep symbolic defaults instead of publishing build-machine filesystem paths.
+autodoc_preserve_defaults = True
 html_theme = "sphinx_rtd_theme"
 html_title = "GradCafe application documentation"
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
