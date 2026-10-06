@@ -1,0 +1,263 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>module_2.scrape &mdash; GradCafe application documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+    <link rel="canonical" href="/_modules/module_2/scrape.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=f46eefca"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            GradCafe Application
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../publishing.html">Build and publish documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">GradCafe Application</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">module_2.scrape</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for module_2.scrape</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Collect recent GradCafe admissions pages with Selenium."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urljoin</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">urllib.robotparser</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobotFileParser</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">certifi</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">urllib3</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">selenium</span><span class="w"> </span><span class="kn">import</span> <span class="n">webdriver</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">selenium.webdriver.common.by</span><span class="w"> </span><span class="kn">import</span> <span class="n">By</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">selenium.webdriver.support</span><span class="w"> </span><span class="kn">import</span> <span class="n">expected_conditions</span> <span class="k">as</span> <span class="n">EC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">selenium.webdriver.support.ui</span><span class="w"> </span><span class="kn">import</span> <span class="n">WebDriverWait</span>
+
+
+<span class="c1">### Keep the scraper configuration in one place.</span>
+<span class="n">user_agent</span> <span class="o">=</span> <span class="s2">"scrape_respectfully"</span>
+<span class="n">url</span> <span class="o">=</span> <span class="s2">"https://www.thegradcafe.com"</span>
+<span class="n">route</span> <span class="o">=</span> <span class="s2">"/survey"</span>
+<span class="n">num</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">location</span> <span class="o">=</span> <span class="s2">"test"</span>
+
+
+<div class="viewcode-block" id="scraping_is_allowed">
+<a class="viewcode-back" href="../../api/scrape.html#module_2.scrape.scraping_is_allowed">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">scraping_is_allowed</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">page_route</span><span class="o">=</span><span class="n">route</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Check robots.txt before requesting GradCafe admissions pages."""</span>
+
+    <span class="n">robots_url</span> <span class="o">=</span> <span class="n">urljoin</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="s2">"/robots.txt"</span><span class="p">)</span>
+    <span class="n">survey_url</span> <span class="o">=</span> <span class="n">urljoin</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">page_route</span><span class="p">)</span>
+    <span class="n">http</span> <span class="o">=</span> <span class="n">urllib3</span><span class="o">.</span><span class="n">PoolManager</span><span class="p">(</span>
+        <span class="n">cert_reqs</span><span class="o">=</span><span class="s2">"CERT_REQUIRED"</span><span class="p">,</span>
+        <span class="n">ca_certs</span><span class="o">=</span><span class="n">certifi</span><span class="o">.</span><span class="n">where</span><span class="p">(),</span>
+    <span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">http</span><span class="o">.</span><span class="n">request</span><span class="p">(</span>
+            <span class="s2">"GET"</span><span class="p">,</span>
+            <span class="n">robots_url</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"User-Agent"</span><span class="p">:</span> <span class="n">user_agent</span><span class="p">},</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">urllib3</span><span class="o">.</span><span class="n">Timeout</span><span class="p">(</span><span class="n">connect</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">read</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="n">urllib3</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">HTTPError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not retrieve robots.txt: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+
+    <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"GradCafe robots.txt returned HTTP </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">RobotFileParser</span><span class="p">(</span><span class="n">robots_url</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"replace"</span><span class="p">)</span><span class="o">.</span><span class="n">splitlines</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">parser</span><span class="o">.</span><span class="n">can_fetch</span><span class="p">(</span><span class="n">user_agent</span><span class="p">,</span> <span class="n">survey_url</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="create_driver">
+<a class="viewcode-back" href="../../api/scrape.html#module_2.scrape.create_driver">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_driver</span><span class="p">(</span><span class="n">headless</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Create the Chrome driver used for one scraping operation."""</span>
+
+    <span class="n">options</span> <span class="o">=</span> <span class="n">webdriver</span><span class="o">.</span><span class="n">ChromeOptions</span><span class="p">()</span>
+    <span class="n">options</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--user-agent=</span><span class="si">{</span><span class="n">user_agent</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># A server-triggered scrape should not open a visible browser window.</span>
+    <span class="k">if</span> <span class="n">headless</span><span class="p">:</span>
+        <span class="n">options</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--headless=new"</span><span class="p">)</span>
+
+    <span class="n">options</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--window-size=1440,1200"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">webdriver</span><span class="o">.</span><span class="n">Chrome</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="scrape_data">
+<a class="viewcode-back" href="../../api/scrape.html#module_2.scrape.scrape_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">scrape_data</span><span class="p">(</span><span class="n">driver</span><span class="p">,</span> <span class="n">survey_url</span><span class="p">,</span> <span class="n">page_count</span><span class="p">,</span> <span class="n">output_directory</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Save GradCafe survey pages as UTF-8 HTML and close the driver on exit.</span>
+
+<span class="sd">    :param driver: Selenium driver used to navigate the survey.</span>
+<span class="sd">    :param survey_url: URL of the first survey page.</span>
+<span class="sd">    :param page_count: Number of pages to save.</span>
+<span class="sd">    :param output_directory: Directory for numbered ``data_*.html`` files.</span>
+<span class="sd">    :returns: List of saved :class:`pathlib.Path` objects.</span>
+<span class="sd">    :raises RuntimeError: Navigation or page extraction fails.</span>
+<span class="sd">    """</span>
+
+    <span class="n">output_directory</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_directory</span><span class="p">)</span>
+    <span class="n">output_directory</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">saved_pages</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">driver</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">survey_url</span><span class="p">)</span>
+
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">saved_pages</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">page_count</span><span class="p">:</span>
+            <span class="n">WebDriverWait</span><span class="p">(</span><span class="n">driver</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">until</span><span class="p">(</span>
+                <span class="n">EC</span><span class="o">.</span><span class="n">presence_of_element_located</span><span class="p">((</span><span class="n">By</span><span class="o">.</span><span class="n">TAG_NAME</span><span class="p">,</span> <span class="s2">"body"</span><span class="p">))</span>
+            <span class="p">)</span>
+
+            <span class="n">output_path</span> <span class="o">=</span> <span class="n">output_directory</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"data_</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">saved_pages</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">.html"</span>
+            <span class="n">output_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">driver</span><span class="o">.</span><span class="n">page_source</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+            <span class="n">saved_pages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">saved_pages</span><span class="p">)</span> <span class="o">==</span> <span class="n">page_count</span><span class="p">:</span>
+                <span class="k">break</span>
+
+            <span class="c1"># Remember the first result so Selenium can verify that the next</span>
+            <span class="c1"># page finished loading before it saves another HTML file.</span>
+            <span class="n">result_locator</span> <span class="o">=</span> <span class="p">(</span><span class="n">By</span><span class="o">.</span><span class="n">CSS_SELECTOR</span><span class="p">,</span> <span class="s1">'a[href^="/result/"]'</span><span class="p">)</span>
+            <span class="n">previous_result_url</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">find_element</span><span class="p">(</span>
+                <span class="o">*</span><span class="n">result_locator</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="s2">"href"</span><span class="p">)</span>
+
+            <span class="n">next_link</span> <span class="o">=</span> <span class="n">WebDriverWait</span><span class="p">(</span><span class="n">driver</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">until</span><span class="p">(</span>
+                <span class="n">EC</span><span class="o">.</span><span class="n">element_to_be_clickable</span><span class="p">((</span><span class="n">By</span><span class="o">.</span><span class="n">LINK_TEXT</span><span class="p">,</span> <span class="s2">"Next"</span><span class="p">))</span>
+            <span class="p">)</span>
+            <span class="n">next_url</span> <span class="o">=</span> <span class="n">next_link</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="s2">"href"</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">next_url</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"The next-page link has no destination URL"</span><span class="p">)</span>
+
+            <span class="n">driver</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">next_url</span><span class="p">)</span>
+            <span class="n">WebDriverWait</span><span class="p">(</span><span class="n">driver</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">until</span><span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">current_driver</span><span class="p">:</span> <span class="n">current_driver</span><span class="o">.</span><span class="n">find_element</span><span class="p">(</span>
+                    <span class="o">*</span><span class="n">result_locator</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="s2">"href"</span><span class="p">)</span>
+                <span class="o">!=</span> <span class="n">previous_result_url</span>
+            <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"GradCafe scraping stopped after </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">saved_pages</span><span class="p">)</span><span class="si">}</span><span class="s2"> pages: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">driver</span><span class="o">.</span><span class="n">quit</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">saved_pages</span></div>
+
+
+
+<div class="viewcode-block" id="scrape_latest_pages">
+<a class="viewcode-back" href="../../api/scrape.html#module_2.scrape.scrape_latest_pages">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">scrape_latest_pages</span><span class="p">(</span><span class="n">output_directory</span><span class="p">,</span> <span class="n">page_count</span><span class="o">=</span><span class="n">num</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Check permission and scrape the newest GradCafe result pages."""</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">scraping_is_allowed</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">PermissionError</span><span class="p">(</span>
+            <span class="s2">"GradCafe robots.txt does not allow this scraper to access /survey"</span>
+        <span class="p">)</span>
+
+    <span class="n">survey_url</span> <span class="o">=</span> <span class="n">urljoin</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">route</span><span class="p">)</span>
+    <span class="n">driver</span> <span class="o">=</span> <span class="n">create_driver</span><span class="p">(</span><span class="n">headless</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">scrape_data</span><span class="p">(</span><span class="n">driver</span><span class="p">,</span> <span class="n">survey_url</span><span class="p">,</span> <span class="n">page_count</span><span class="p">,</span> <span class="n">output_directory</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">output_directory</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">location</span>
+    <span class="n">saved_pages</span> <span class="o">=</span> <span class="n">scrape_latest_pages</span><span class="p">(</span><span class="n">output_directory</span><span class="p">,</span> <span class="n">num</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Scraping completed: saved </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">saved_pages</span><span class="p">)</span><span class="si">}</span><span class="s2"> pages"</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Geunyong Son.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

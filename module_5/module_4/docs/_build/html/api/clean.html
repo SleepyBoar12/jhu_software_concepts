@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>clean.py — transformation &#8212; GradCafe application documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=f46eefca"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="/api/clean.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="load_data.py — validation and loading" href="load_data.html" />
+    <link rel="prev" title="scrape.py — extraction" href="scrape.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="clean-py-transformation">
+<h1>clean.py — transformation<a class="headerlink" href="#clean-py-transformation" title="Link to this heading">¶</a></h1>
+<p>Location: <code class="docutils literal notranslate"><span class="pre">module_2/clean.py</span></code>. The cleaner groups applicant main, details,
+and comment rows from saved <code class="docutils literal notranslate"><span class="pre">data_*.html</span></code> pages. It extracts badges for term,
+nationality, GRE, and GPA, and returns dictionaries with source field names.
+<code class="docutils literal notranslate"><span class="pre">save_data()</span></code> writes a JSON array, rather than JSON Lines.</p>
+<p>BeautifulSoup is required to execute the cleaner; its import is mocked only
+for the documentation build.</p>
+<dl class="py function" id="module-module_2.clean">
+<dt class="sig sig-object py" id="module_2.clean._get_badge_value">
+<span class="sig-prename descclassname"><span class="pre">module_2.clean.</span></span><span class="sig-name descname"><span class="pre">_get_badge_value</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">badges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_2/clean.html#_get_badge_value"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_2.clean._get_badge_value" title="Link to this definition">¶</a></dt>
+<dd><p>Return the value portion of a badge such as ‘GPA 3.57’.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_2.clean._parse_html_file">
+<span class="sig-prename descclassname"><span class="pre">module_2.clean.</span></span><span class="sig-name descname"><span class="pre">_parse_html_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">html_file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_2/clean.html#_parse_html_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_2.clean._parse_html_file" title="Link to this definition">¶</a></dt>
+<dd><p>Extract all applicant records from one saved GradCafe HTML file.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_2.clean.clean_data">
+<span class="sig-prename descclassname"><span class="pre">module_2.clean.</span></span><span class="sig-name descname"><span class="pre">clean_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_directory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">PosixPath('/Users/dansong/jhu_software_concepts/module_2/collected')</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_2/clean.html#clean_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_2.clean.clean_data" title="Link to this definition">¶</a></dt>
+<dd><p>Parse every data_*.html file from one directory.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_2.clean.save_data">
+<span class="sig-prename descclassname"><span class="pre">module_2.clean.</span></span><span class="sig-name descname"><span class="pre">save_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">PosixPath('/Users/dansong/jhu_software_concepts/module_2/cleaned/applicant_data.json')</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_2/clean.html#save_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_2.clean.save_data" title="Link to this definition">¶</a></dt>
+<dd><p>Save applicant dictionaries as readable UTF-8 JSON, in “cleaned” folder.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_2.clean.load_data">
+<span class="sig-prename descclassname"><span class="pre">module_2.clean.</span></span><span class="sig-name descname"><span class="pre">load_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">PosixPath('/Users/dansong/jhu_software_concepts/module_2/cleaned/applicant_data.json')</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_2/clean.html#load_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_2.clean.load_data" title="Link to this definition">¶</a></dt>
+<dd><p>Load and return applicant dictionaries from the generated JSON file.</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GradCafe Application</a></h1>
+
+
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="scrape.html">scrape.py — extraction</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">clean.py — transformation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="load_data.html">load_data.py — validation and loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="query_data.html">query_data.py — SQL analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="flask_app.html">flask_app.py — web routes and analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">models.py — database mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orm_queries.html">orm_queries.py — ORM analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../publishing.html">Build and publish documentation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API reference</a><ul>
+      <li>Previous: <a href="scrape.html" title="previous chapter">scrape.py — extraction</a></li>
+      <li>Next: <a href="load_data.html" title="next chapter">load_data.py — validation and loading</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Geunyong Son.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/api/clean.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

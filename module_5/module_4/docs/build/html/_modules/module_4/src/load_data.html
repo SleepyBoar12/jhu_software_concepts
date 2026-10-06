@@ -1,0 +1,475 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>module_4.src.load_data &mdash; GradCafe application documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+    <link rel="canonical" href="/_modules/module_4/src/load_data.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=f46eefca"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            GradCafe Application
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../testing.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../operations.html">Operational notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../publishing.html">Build and publish documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">GradCafe Application</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">module_4.src.load_data</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for module_4.src.load_data</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Validate cleaned GradCafe records and upsert PostgreSQL rows by unique URL."""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">decimal</span><span class="w"> </span><span class="kn">import</span> <span class="n">Decimal</span><span class="p">,</span> <span class="n">InvalidOperation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">psycopg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.database</span><span class="w"> </span><span class="kn">import</span> <span class="n">connection_string</span>
+
+
+<span class="c1">### Build paths relative to module_4 so the program works from any directory.</span>
+<span class="n">src_directory</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+<span class="n">module_4_directory</span> <span class="o">=</span> <span class="n">src_directory</span><span class="o">.</span><span class="n">parent</span>
+<span class="n">json_file</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">module_4_directory</span>
+    <span class="o">/</span> <span class="s2">"cleaned"</span>
+    <span class="o">/</span> <span class="s2">"llm_extended_applicant_data.json"</span>
+<span class="p">)</span>
+
+<span class="c1"># Insert records in batches instead of holding every database operation at once.</span>
+<span class="n">batch_size</span> <span class="o">=</span> <span class="mi">1_000</span>
+
+
+<div class="viewcode-block" id="required_text">
+<a class="viewcode-back" href="../../../api/load_data.html#module_4.src.load_data.required_text">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">required_text</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">line_number</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Return a required text value or stop when it is missing."""</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Line </span><span class="si">{</span><span class="n">line_number</span><span class="si">}</span><span class="s2"> has no valid </span><span class="si">{</span><span class="n">field</span><span class="si">!r}</span><span class="s2"> value"</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="optional_text">
+<a class="viewcode-back" href="../../../api/load_data.html#module_4.src.load_data.optional_text">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">optional_text</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">field</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Convert missing or blank optional text to Python None/SQL NULL."""</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">value</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">value</span> <span class="ow">or</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="optional_decimal">
+<a class="viewcode-back" href="../../../api/load_data.html#module_4.src.load_data.optional_decimal">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">optional_decimal</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">line_number</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Convert an optional numeric string into a PostgreSQL-safe number."""</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">number</span> <span class="o">=</span> <span class="n">Decimal</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+    <span class="k">except</span> <span class="n">InvalidOperation</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Line </span><span class="si">{</span><span class="n">line_number</span><span class="si">}</span><span class="s2"> has invalid </span><span class="si">{</span><span class="n">field</span><span class="si">!r}</span><span class="s2">: </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">"</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">number</span><span class="o">.</span><span class="n">is_finite</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Line </span><span class="si">{</span><span class="n">line_number</span><span class="si">}</span><span class="s2"> has invalid </span><span class="si">{</span><span class="n">field</span><span class="si">!r}</span><span class="s2">: </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">"</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">number</span></div>
+
+
+
+<div class="viewcode-block" id="prepare_record">
+<a class="viewcode-back" href="../../../api/load_data.html#module_4.src.load_data.prepare_record">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">prepare_record</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">line_number</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Validate one JSON object and match its values to the SQL columns."""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Line </span><span class="si">{</span><span class="n">line_number</span><span class="si">}</span><span class="s2"> must contain one JSON object"</span>
+        <span class="p">)</span>
+
+    <span class="n">date_text</span> <span class="o">=</span> <span class="n">required_text</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"date_added"</span><span class="p">,</span> <span class="n">line_number</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">date_added</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">date_text</span><span class="p">,</span> <span class="s2">"%b </span><span class="si">%d</span><span class="s2">, %Y"</span><span class="p">)</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Line </span><span class="si">{</span><span class="n">line_number</span><span class="si">}</span><span class="s2"> has invalid date_added: </span><span class="si">{</span><span class="n">date_text</span><span class="si">!r}</span><span class="s2">"</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"program"</span><span class="p">:</span> <span class="n">required_text</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"program"</span><span class="p">,</span> <span class="n">line_number</span><span class="p">),</span>
+        <span class="s2">"comments"</span><span class="p">:</span> <span class="n">optional_text</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"comments"</span><span class="p">),</span>
+        <span class="s2">"date_added"</span><span class="p">:</span> <span class="n">date_added</span><span class="p">,</span>
+        <span class="s2">"url"</span><span class="p">:</span> <span class="n">required_text</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"url"</span><span class="p">,</span> <span class="n">line_number</span><span class="p">),</span>
+        <span class="s2">"status"</span><span class="p">:</span> <span class="n">required_text</span><span class="p">(</span>
+            <span class="n">record</span><span class="p">,</span>
+            <span class="s2">"applicant_status"</span><span class="p">,</span>
+            <span class="n">line_number</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="s2">"term"</span><span class="p">:</span> <span class="n">optional_text</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"program_start"</span><span class="p">),</span>
+        <span class="s2">"us_or_international"</span><span class="p">:</span> <span class="n">optional_text</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"student_type"</span><span class="p">),</span>
+        <span class="s2">"gre"</span><span class="p">:</span> <span class="n">optional_decimal</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"gre_score"</span><span class="p">,</span> <span class="n">line_number</span><span class="p">),</span>
+        <span class="s2">"gre_v"</span><span class="p">:</span> <span class="n">optional_decimal</span><span class="p">(</span>
+            <span class="n">record</span><span class="p">,</span>
+            <span class="s2">"gre_v_score"</span><span class="p">,</span>
+            <span class="n">line_number</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="s2">"degree"</span><span class="p">:</span> <span class="n">optional_text</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"degree"</span><span class="p">),</span>
+        <span class="s2">"gpa"</span><span class="p">:</span> <span class="n">optional_decimal</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"gpa"</span><span class="p">,</span> <span class="n">line_number</span><span class="p">),</span>
+        <span class="s2">"gre_aw"</span><span class="p">:</span> <span class="n">optional_decimal</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"gre_aw"</span><span class="p">,</span> <span class="n">line_number</span><span class="p">),</span>
+        <span class="c1"># The JSON names use hyphens, but SQL column names use underscores.</span>
+        <span class="s2">"llm_generated_program"</span><span class="p">:</span> <span class="n">optional_text</span><span class="p">(</span>
+            <span class="n">record</span><span class="p">,</span>
+            <span class="s2">"llm-generated-program"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="s2">"llm_generated_university"</span><span class="p">:</span> <span class="n">optional_text</span><span class="p">(</span>
+            <span class="n">record</span><span class="p">,</span>
+            <span class="s2">"llm-generated-university"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="read_records">
+<a class="viewcode-back" href="../../../api/load_data.html#module_4.src.load_data.read_records">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_records</span><span class="p">(</span><span class="n">input_file</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Read and validate a JSON Lines file, skipping blank lines.</span>
+
+<span class="sd">    :param input_file: :class:`pathlib.Path` containing one JSON object per line.</span>
+<span class="sd">    :yields: Prepared records accepted by :func:`load_records`.</span>
+<span class="sd">    :raises FileNotFoundError: The input file does not exist.</span>
+<span class="sd">    :raises ValueError: A line contains invalid JSON or invalid applicant data.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">input_file</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Applicant data not found: </span><span class="si">{</span><span class="n">input_file</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">input_file</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"r"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">line_number</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+            <span class="c1"># Ignore accidental blank lines between JSON records.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+                <span class="k">continue</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">record</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Line </span><span class="si">{</span><span class="n">line_number</span><span class="si">}</span><span class="s2"> is not valid JSON"</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+
+            <span class="k">yield</span> <span class="n">prepare_record</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">line_number</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="make_batches">
+<a class="viewcode-back" href="../../../api/load_data.html#module_4.src.load_data.make_batches">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_batches</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">size</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Group applicant records into smaller lists for database insertion."""</span>
+    <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
+        <span class="n">batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span> <span class="o">==</span> <span class="n">size</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">batch</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Yield the final partial batch when fewer than size records remain.</span>
+    <span class="k">if</span> <span class="n">batch</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">batch</span></div>
+
+
+
+<span class="c1">### Create the table when it does not exist. The URL constraint prevents duplicates.</span>
+<span class="n">create_table_sql</span> <span class="o">=</span> <span class="s2">"""</span>
+<span class="s2">CREATE TABLE IF NOT EXISTS applicants (</span>
+<span class="s2">    p_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,</span>
+<span class="s2">    program TEXT NOT NULL,</span>
+<span class="s2">    comments TEXT,</span>
+<span class="s2">    date_added DATE NOT NULL,</span>
+<span class="s2">    url TEXT NOT NULL UNIQUE,</span>
+<span class="s2">    status TEXT NOT NULL,</span>
+<span class="s2">    term TEXT,</span>
+<span class="s2">    us_or_international TEXT,</span>
+<span class="s2">    gpa DOUBLE PRECISION,</span>
+<span class="s2">    gre DOUBLE PRECISION,</span>
+<span class="s2">    gre_v DOUBLE PRECISION,</span>
+<span class="s2">    gre_aw DOUBLE PRECISION,</span>
+<span class="s2">    degree TEXT,</span>
+<span class="s2">    llm_generated_program TEXT,</span>
+<span class="s2">    llm_generated_university TEXT</span>
+<span class="s2">);</span>
+<span class="s2">"""</span>
+
+
+<span class="c1">### Insert new URLs and update an existing URL only when its data has changed.</span>
+<span class="n">upsert_sql</span> <span class="o">=</span> <span class="s2">"""</span>
+<span class="s2">INSERT INTO applicants (</span>
+<span class="s2">    program,</span>
+<span class="s2">    comments,</span>
+<span class="s2">    date_added,</span>
+<span class="s2">    url,</span>
+<span class="s2">    status,</span>
+<span class="s2">    term,</span>
+<span class="s2">    us_or_international,</span>
+<span class="s2">    gpa,</span>
+<span class="s2">    gre,</span>
+<span class="s2">    gre_v,</span>
+<span class="s2">    gre_aw,</span>
+<span class="s2">    degree,</span>
+<span class="s2">    llm_generated_program,</span>
+<span class="s2">    llm_generated_university</span>
+<span class="s2">)</span>
+<span class="s2">VALUES (</span>
+<span class="s2">    </span><span class="si">%(program)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(comments)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(date_added)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(url)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(status)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(term)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(us_or_international)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(gpa)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(gre)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(gre_v)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(gre_aw)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(degree)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(llm_generated_program)s</span><span class="s2">,</span>
+<span class="s2">    </span><span class="si">%(llm_generated_university)s</span>
+<span class="s2">)</span>
+<span class="s2">ON CONFLICT (url) DO UPDATE SET</span>
+<span class="s2">    program = EXCLUDED.program,</span>
+<span class="s2">    comments = EXCLUDED.comments,</span>
+<span class="s2">    date_added = EXCLUDED.date_added,</span>
+<span class="s2">    status = EXCLUDED.status,</span>
+<span class="s2">    term = EXCLUDED.term,</span>
+<span class="s2">    us_or_international = EXCLUDED.us_or_international,</span>
+<span class="s2">    gpa = EXCLUDED.gpa,</span>
+<span class="s2">    gre = EXCLUDED.gre,</span>
+<span class="s2">    gre_v = EXCLUDED.gre_v,</span>
+<span class="s2">    gre_aw = EXCLUDED.gre_aw,</span>
+<span class="s2">    degree = EXCLUDED.degree,</span>
+<span class="s2">    llm_generated_program = COALESCE(</span>
+<span class="s2">        EXCLUDED.llm_generated_program,</span>
+<span class="s2">        applicants.llm_generated_program</span>
+<span class="s2">    ),</span>
+<span class="s2">    llm_generated_university = COALESCE(</span>
+<span class="s2">        EXCLUDED.llm_generated_university,</span>
+<span class="s2">        applicants.llm_generated_university</span>
+<span class="s2">    )</span>
+<span class="s2">WHERE ROW(</span>
+<span class="s2">    applicants.program,</span>
+<span class="s2">    applicants.comments,</span>
+<span class="s2">    applicants.date_added,</span>
+<span class="s2">    applicants.status,</span>
+<span class="s2">    applicants.term,</span>
+<span class="s2">    applicants.us_or_international,</span>
+<span class="s2">    applicants.gpa,</span>
+<span class="s2">    applicants.gre,</span>
+<span class="s2">    applicants.gre_v,</span>
+<span class="s2">    applicants.gre_aw,</span>
+<span class="s2">    applicants.degree,</span>
+<span class="s2">    applicants.llm_generated_program,</span>
+<span class="s2">    applicants.llm_generated_university</span>
+<span class="s2">) IS DISTINCT FROM ROW(</span>
+<span class="s2">    EXCLUDED.program,</span>
+<span class="s2">    EXCLUDED.comments,</span>
+<span class="s2">    EXCLUDED.date_added,</span>
+<span class="s2">    EXCLUDED.status,</span>
+<span class="s2">    EXCLUDED.term,</span>
+<span class="s2">    EXCLUDED.us_or_international,</span>
+<span class="s2">    EXCLUDED.gpa,</span>
+<span class="s2">    EXCLUDED.gre,</span>
+<span class="s2">    EXCLUDED.gre_v,</span>
+<span class="s2">    EXCLUDED.gre_aw,</span>
+<span class="s2">    EXCLUDED.degree,</span>
+<span class="s2">    COALESCE(</span>
+<span class="s2">        EXCLUDED.llm_generated_program,</span>
+<span class="s2">        applicants.llm_generated_program</span>
+<span class="s2">    ),</span>
+<span class="s2">    COALESCE(</span>
+<span class="s2">        EXCLUDED.llm_generated_university,</span>
+<span class="s2">        applicants.llm_generated_university</span>
+<span class="s2">    )</span>
+<span class="s2">);</span>
+<span class="s2">"""</span>
+
+
+<div class="viewcode-block" id="load_records">
+<a class="viewcode-back" href="../../../api/load_data.html#module_4.src.load_data.load_records">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_records</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">database_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Upsert prepared records and return a summary of database changes."""</span>
+    <span class="n">processed_rows</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">changed_rows</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># The connection commits on success and rolls everything back on an error.</span>
+    <span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">connection_string</span><span class="p">(</span><span class="n">database_url</span><span class="p">))</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">connection</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cursor</span><span class="p">:</span>
+            <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">create_table_sql</span><span class="p">)</span>
+            <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"SELECT COUNT(*) FROM applicants"</span><span class="p">)</span>
+            <span class="n">total_rows_before</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">make_batches</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+                <span class="n">cursor</span><span class="o">.</span><span class="n">executemany</span><span class="p">(</span><span class="n">upsert_sql</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+                <span class="n">processed_rows</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+
+                <span class="c1"># rowcount includes new rows and existing rows that changed.</span>
+                <span class="k">if</span> <span class="n">cursor</span><span class="o">.</span><span class="n">rowcount</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">changed_rows</span> <span class="o">+=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">rowcount</span>
+
+            <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"SELECT COUNT(*) FROM applicants"</span><span class="p">)</span>
+            <span class="n">total_rows_after</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">inserted_rows</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">total_rows_after</span> <span class="o">-</span> <span class="n">total_rows_before</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">updated_rows</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">changed_rows</span> <span class="o">-</span> <span class="n">inserted_rows</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"processed_rows"</span><span class="p">:</span> <span class="n">processed_rows</span><span class="p">,</span>
+        <span class="s2">"inserted_rows"</span><span class="p">:</span> <span class="n">inserted_rows</span><span class="p">,</span>
+        <span class="s2">"updated_rows"</span><span class="p">:</span> <span class="n">updated_rows</span><span class="p">,</span>
+        <span class="s2">"total_rows"</span><span class="p">:</span> <span class="n">total_rows_after</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="load_cleaned_records">
+<a class="viewcode-back" href="../../../api/load_data.html#module_4.src.load_data.load_cleaned_records">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_cleaned_records</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">database_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Validate cleaned dictionaries and commit PostgreSQL upserts.</span>
+
+<span class="sd">    :param records: Iterable of dictionaries using the cleaner's field names.</span>
+<span class="sd">    :returns: Dictionary with ``processed_rows``, ``inserted_rows``,</span>
+<span class="sd">        ``updated_rows``, and ``total_rows`` counts.</span>
+<span class="sd">    :raises ValueError: Required fields, dates, or numeric scores are invalid.</span>
+
+<span class="sd">    The loader creates the table when needed. Repeated URLs update existing</span>
+<span class="sd">    applicants instead of creating duplicate rows; database errors roll back</span>
+<span class="sd">    the transaction and propagate to the caller.</span>
+<span class="sd">    """</span>
+
+    <span class="n">prepared_records</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">prepare_record</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">record_number</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">record_number</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">load_records</span><span class="p">(</span><span class="n">prepared_records</span><span class="p">,</span> <span class="n">database_url</span><span class="o">=</span><span class="n">database_url</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../../api/load_data.html#module_4.src.load_data.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""Load the saved LLM-extended JSON file into PostgreSQL."""</span>
+
+    <span class="n">summary</span> <span class="o">=</span> <span class="n">load_records</span><span class="p">(</span><span class="n">read_records</span><span class="p">(</span><span class="n">json_file</span><span class="p">))</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Processed </span><span class="si">{</span><span class="n">summary</span><span class="p">[</span><span class="s1">'processed_rows'</span><span class="p">]</span><span class="si">}</span><span class="s2"> JSON records"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Inserted </span><span class="si">{</span><span class="n">summary</span><span class="p">[</span><span class="s1">'inserted_rows'</span><span class="p">]</span><span class="si">}</span><span class="s2"> database records"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Updated </span><span class="si">{</span><span class="n">summary</span><span class="p">[</span><span class="s1">'updated_rows'</span><span class="p">]</span><span class="si">}</span><span class="s2"> database records"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The applicants table contains </span><span class="si">{</span><span class="n">summary</span><span class="p">[</span><span class="s1">'total_rows'</span><span class="p">]</span><span class="si">}</span><span class="s2"> records"</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Geunyong Son.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>orm_queries.py — ORM analysis &#8212; GradCafe application documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=f46eefca"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="/api/orm_queries.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Testing guide" href="../testing.html" />
+    <link rel="prev" title="models.py — database mapping" href="models.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="orm-queries-py-orm-analysis">
+<h1>orm_queries.py — ORM analysis<a class="headerlink" href="#orm-queries-py-orm-analysis" title="Link to this heading">¶</a></h1>
+<p>Location: <code class="docutils literal notranslate"><span class="pre">module_4/src/orm_queries.py</span></code>. These SQLAlchemy query functions are
+shared by the web analysis builder. They cover counts, GPA averages, acceptance
+percentages, and raw-text versus LLM-label matching. <code class="docutils literal notranslate"><span class="pre">format_decimal()</span></code>
+returns two decimal places or <code class="docutils literal notranslate"><span class="pre">N/A</span></code>.</p>
+<p id="module-module_4.src.orm_queries">SQL Queries to answer the following questions:
+All count in whole number
+ALL percentages, GPA, GRE quant, GRE verbal, and GRE analytical scores in 2 DECIMAL PLACES</p>
+<p>1. How many entries in your database are from applicants who applied for Fall 2026?
+4. What is the Average GPA of American applicants who applied for Fall 2026?
+5. WHat percentage of Fall 2025 entries are acceptances?
+8. How many Fall 2026 entries are acceptances from applicants applying for a PhD in Computer Science at Georgetown University, MIT, Stanford, and Carnegie Mellon?
+9. Identify universities and programs LLM generated terms. Report Question 8 and Question 9 count for term, degree, and admissions status. Report the difference between them
+10. What percentage of students getting accepted at NYU master’s program are international?</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.orm_queries.question_1">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.orm_queries.</span></span><span class="sig-name descname"><span class="pre">question_1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/orm_queries.html#question_1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.orm_queries.question_1" title="Link to this definition">¶</a></dt>
+<dd><p>Count applicants who applied for the Fall 2026 term.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.orm_queries.question_4">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.orm_queries.</span></span><span class="sig-name descname"><span class="pre">question_4</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/orm_queries.html#question_4"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.orm_queries.question_4" title="Link to this definition">¶</a></dt>
+<dd><p>Find the average GPA of American Fall 2026 applicants.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.orm_queries.question_5">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.orm_queries.</span></span><span class="sig-name descname"><span class="pre">question_5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/orm_queries.html#question_5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.orm_queries.question_5" title="Link to this definition">¶</a></dt>
+<dd><p>Calculate the acceptance percentage for Fall 2025 entries.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.orm_queries.question_8">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.orm_queries.</span></span><span class="sig-name descname"><span class="pre">question_8</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/orm_queries.html#question_8"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.orm_queries.question_8" title="Link to this definition">¶</a></dt>
+<dd><p>Count qualifying applicants by searching the original program text.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.orm_queries.question_9">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.orm_queries.</span></span><span class="sig-name descname"><span class="pre">question_9</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/orm_queries.html#question_9"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.orm_queries.question_9" title="Link to this definition">¶</a></dt>
+<dd><p>Count the same applicants using exact LLM-standardized fields.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.orm_queries.question_10">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.orm_queries.</span></span><span class="sig-name descname"><span class="pre">question_10</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/orm_queries.html#question_10"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.orm_queries.question_10" title="Link to this definition">¶</a></dt>
+<dd><p>Find the international percentage for accepted NYU master’s rows.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.orm_queries.format_decimal">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.orm_queries.</span></span><span class="sig-name descname"><span class="pre">format_decimal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suffix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/orm_queries.html#format_decimal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.orm_queries.format_decimal" title="Link to this definition">¶</a></dt>
+<dd><p>Display missing results clearly and numeric results to two places.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.orm_queries.main">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.orm_queries.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/orm_queries.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.orm_queries.main" title="Link to this definition">¶</a></dt>
+<dd><p>Open one session and run the requested ORM questions in order.</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GradCafe Application</a></h1>
+
+
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="scrape.html">scrape.py — extraction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="clean.html">clean.py — transformation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="load_data.html">load_data.py — validation and loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="query_data.html">query_data.py — SQL analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="flask_app.html">flask_app.py — web routes and analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">models.py — database mapping</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">orm_queries.py — ORM analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../publishing.html">Build and publish documentation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API reference</a><ul>
+      <li>Previous: <a href="models.html" title="previous chapter">models.py — database mapping</a></li>
+      <li>Next: <a href="../testing.html" title="next chapter">Testing guide</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Geunyong Son.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/api/orm_queries.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

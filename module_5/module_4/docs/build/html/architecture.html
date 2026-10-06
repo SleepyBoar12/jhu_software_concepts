@@ -1,0 +1,209 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture &mdash; GradCafe application documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+    <link rel="canonical" href="/architecture.html" />
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=f46eefca"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API reference" href="api/index.html" />
+    <link rel="prev" title="Overview and setup" href="overview.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            GradCafe Application
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview and setup</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#layers-and-responsibilities">Layers and responsibilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#data-flow">Data flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#database-contract">Database contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#web-requests-and-background-work">Web requests and background work</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="operations.html">Operational notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="publishing.html">Build and publish documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">GradCafe Application</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Architecture</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/architecture.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="architecture">
+<h1>Architecture<a class="headerlink" href="#architecture" title="Link to this heading"></a></h1>
+<section id="layers-and-responsibilities">
+<h2>Layers and responsibilities<a class="headerlink" href="#layers-and-responsibilities" title="Link to this heading"></a></h2>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Application layers</span><a class="headerlink" href="#id1" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 35.0%" />
+<col style="width: 47.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Layer</p></th>
+<th class="head"><p>Modules</p></th>
+<th class="head"><p>Responsibility</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Web</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">module_4.src.flask_app</span></code> and <code class="docutils literal notranslate"><span class="pre">src/templates/index.html</span></code></p></td>
+<td><p>Serve analysis pages, accept pull/update requests, expose pull status,
+and format query results for the template.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Extract and transform</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">module_2.scrape</span></code> and <code class="docutils literal notranslate"><span class="pre">module_2.clean</span></code></p></td>
+<td><p>Check robots.txt, save survey HTML with Selenium, then group main,
+detail, and comment rows into applicant dictionaries.</p></td>
+</tr>
+<tr class="row-even"><td><p>Load</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">module_4.src.load_data</span></code></p></td>
+<td><p>Validate required fields, dates, and scores; normalize optional values;
+batch records and upsert them in a transaction.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Database and queries</p></td>
+<td><p>PostgreSQL, <code class="docutils literal notranslate"><span class="pre">module_4.src.models</span></code>, <code class="docutils literal notranslate"><span class="pre">query_data</span></code>, and <code class="docutils literal notranslate"><span class="pre">orm_queries</span></code></p></td>
+<td><p>Persist the applicants table, enforce unique URLs, manage sessions, and
+calculate SQL and ORM analyses.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="data-flow">
+<h2>Data flow<a class="headerlink" href="#data-flow" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>GradCafe survey pages
+    │ module_2.scrape: saved HTML
+    ▼
+module_2.clean: applicant dictionaries / JSON array
+    │ optional upstream LLM enrichment
+    ▼
+module_4.src.load_data: validation → batches → transactional upserts
+    ▼
+PostgreSQL applicants table
+    │ SQL queries / SQLAlchemy ORM
+    ▼
+Flask analysis results → Jinja template → browser
+</pre></div>
+</div>
+<p>The earlier ETL modules are reused in the default Flask pull pipeline and
+documented in their existing locations. Tests inject scraper and cleaner
+functions, then use the real loader for database and integration checks.</p>
+</section>
+<section id="database-contract">
+<h2>Database contract<a class="headerlink" href="#database-contract" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">applicants.p_id</span></code> is an identity primary key. <code class="docutils literal notranslate"><span class="pre">url</span></code> is unique and is the
+upsert key. <code class="docutils literal notranslate"><span class="pre">program</span></code>, <code class="docutils literal notranslate"><span class="pre">date_added</span></code>, <code class="docutils literal notranslate"><span class="pre">url</span></code>, and <code class="docutils literal notranslate"><span class="pre">status</span></code> are required.
+Other columns store comments, term, nationality classification, degree, scores,
+and standardized program/university labels. Incoming
+<code class="docutils literal notranslate"><span class="pre">applicant_status</span></code> becomes <code class="docutils literal notranslate"><span class="pre">status</span></code>, <code class="docutils literal notranslate"><span class="pre">program_start</span></code> becomes <code class="docutils literal notranslate"><span class="pre">term</span></code>,
+and hyphenated LLM keys become column names with underscores.</p>
+<p>An identical URL and identical values produce no change. A changed record
+updates its existing row. Missing incoming LLM labels preserve existing labels.
+The loader reports <code class="docutils literal notranslate"><span class="pre">processed_rows</span></code>, <code class="docutils literal notranslate"><span class="pre">inserted_rows</span></code>, <code class="docutils literal notranslate"><span class="pre">updated_rows</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">total_rows</span></code>. Its connection commits on success and rolls back on error.
+See <a class="reference internal" href="api/load_data.html"><span class="doc">load_data.py — validation and loading</span></a> for the functions and <a class="reference internal" href="api/models.html"><span class="doc">models.py — database mapping</span></a> for the ORM.</p>
+</section>
+<section id="web-requests-and-background-work">
+<h2>Web requests and background work<a class="headerlink" href="#web-requests-and-background-work" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">create_app</span></code> configures an independent application with injectable scraper,
+cleaner, loader, and query functions. It accepts a <code class="docutils literal notranslate"><span class="pre">DATABASE_URL</span></code> override.
+The default <code class="docutils literal notranslate"><span class="pre">query_analysis</span></code> returns the dictionary consumed by Jinja.
+Database errors render an error page with HTTP 500. Counts use whole numbers;
+score averages and percentages use two decimal places; unavailable values
+use <code class="docutils literal notranslate"><span class="pre">N/A</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pull_data</span></code> claims the busy state under a lock, runs ETL in its request
+thread, and returns JSON after commit. A second pull or an analysis update
+while running receives HTTP 409 with <code class="docutils literal notranslate"><span class="pre">{&quot;busy&quot;:</span> <span class="pre">true}</span></code>. The page submits
+with fetch and uses <code class="docutils literal notranslate"><span class="pre">/pull-status</span></code> to display progress. State belongs to
+one Flask application process. See <a class="reference internal" href="operations.html"><span class="doc">Operational notes</span></a> for deployment limits,
+rollback behavior, and the uniqueness strategy.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="overview.html" class="btn btn-neutral float-left" title="Overview and setup" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="api/index.html" class="btn btn-neutral float-right" title="API reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Geunyong Son.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,286 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>module_4.src.orm_queries &mdash; GradCafe application documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+    <link rel="canonical" href="/_modules/module_4/src/orm_queries.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=f46eefca"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            GradCafe Application
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../testing.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../publishing.html">Build and publish documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">GradCafe Application</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">module_4.src.orm_queries</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for module_4.src.orm_queries</h1><div class="highlight"><pre>
+<span></span><span class="c1">### Uses SQLAlchemy to answer Questions 1,4,5,8,9,10.</span>
+<span class="sd">"""</span>
+<span class="sd">SQL Queries to answer the following questions:</span>
+<span class="sd">All count in whole number</span>
+<span class="sd">ALL percentages, GPA, GRE quant, GRE verbal, and GRE analytical scores in 2 DECIMAL PLACES</span>
+
+<span class="sd">1. How many entries in your database are from applicants who applied for Fall 2026?</span>
+<span class="sd">4. What is the Average GPA of American applicants who applied for Fall 2026?</span>
+<span class="sd">5. WHat percentage of Fall 2025 entries are acceptances?</span>
+<span class="sd">8. How many Fall 2026 entries are acceptances from applicants applying for a PhD in Computer Science at Georgetown University, MIT, Stanford, and Carnegie Mellon?</span>
+<span class="sd">9. Identify universities and programs LLM generated terms. Report Question 8 and Question 9 count for term, degree, and admissions status. Report the difference between them</span>
+<span class="sd">10. What percentage of students getting accepted at NYU master's program are international?</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">sqlalchemy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">and_</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">or_</span><span class="p">,</span> <span class="n">select</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sqlalchemy.orm</span><span class="w"> </span><span class="kn">import</span> <span class="n">Session</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Applicant</span><span class="p">,</span> <span class="n">SessionLocal</span>
+
+<span class="c1">### Include both common raw-text names for MIT because the original data varies.</span>
+<span class="n">raw_university_conditions</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
+    <span class="n">Applicant</span><span class="o">.</span><span class="n">program</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="s2">"</span><span class="si">%G</span><span class="s2">eorgetown University%"</span><span class="p">),</span>
+    <span class="n">Applicant</span><span class="o">.</span><span class="n">program</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="s2">"%MIT%"</span><span class="p">),</span>
+    <span class="n">Applicant</span><span class="o">.</span><span class="n">program</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="s2">"%Massachusetts Institute of Technology%"</span><span class="p">),</span>
+    <span class="n">Applicant</span><span class="o">.</span><span class="n">program</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="s2">"%Stanford University%"</span><span class="p">),</span>
+    <span class="n">Applicant</span><span class="o">.</span><span class="n">program</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="s2">"%Carnegie Mellon University%"</span><span class="p">))</span>
+
+<span class="c1">### Use the standardized university names generated by the LLM.</span>
+<span class="n">llm_university_conditions</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
+    <span class="n">func</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">llm_generated_university</span><span class="p">)</span>
+    <span class="o">==</span> <span class="s2">"georgetown university"</span><span class="p">,</span>
+    <span class="n">func</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">llm_generated_university</span><span class="p">)</span>
+    <span class="o">==</span> <span class="s2">"massachusetts institute of technology"</span><span class="p">,</span>
+    <span class="n">func</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">llm_generated_university</span><span class="p">)</span>
+    <span class="o">==</span> <span class="s2">"stanford university"</span><span class="p">,</span>
+    <span class="n">func</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">llm_generated_university</span><span class="p">)</span>
+    <span class="o">==</span> <span class="s2">"carnegie mellon university"</span><span class="p">)</span>
+
+<div class="viewcode-block" id="question_1">
+<a class="viewcode-back" href="../../../api/orm_queries.html#module_4.src.orm_queries.question_1">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">question_1</span><span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="n">Session</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Count applicants who applied for the Fall 2026 term."""</span>
+
+    <span class="n">statement</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">select</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">p_id</span><span class="p">))</span>
+        <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">term</span> <span class="o">==</span> <span class="s2">"Fall 2026"</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">session</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="question_4">
+<a class="viewcode-back" href="../../../api/orm_queries.html#module_4.src.orm_queries.question_4">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">question_4</span><span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="n">Session</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Find the average GPA of American Fall 2026 applicants."""</span>
+
+    <span class="c1"># PostgreSQL needs NUMERIC before ROUND can use two decimal places.</span>
+    <span class="n">rounded_average</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">round</span><span class="p">(</span>
+        <span class="n">cast</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">avg</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">gpa</span><span class="p">),</span> <span class="n">Numeric</span><span class="p">),</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">rounded_average</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">and_</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">term</span> <span class="o">==</span> <span class="s2">"Fall 2026"</span><span class="p">,</span>
+            <span class="n">Applicant</span><span class="o">.</span><span class="n">us_or_international</span> <span class="o">==</span> <span class="s2">"American"</span><span class="p">,</span>
+            <span class="n">Applicant</span><span class="o">.</span><span class="n">gpa</span><span class="o">.</span><span class="n">is_not</span><span class="p">(</span><span class="kc">None</span><span class="p">)))</span>
+
+    <span class="k">return</span> <span class="n">session</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="question_5">
+<a class="viewcode-back" href="../../../api/orm_queries.html#module_4.src.orm_queries.question_5">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">question_5</span><span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="n">Session</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Calculate the acceptance percentage for Fall 2025 entries."""</span>
+
+    <span class="n">total_statement</span> <span class="o">=</span> <span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">p_id</span><span class="p">))</span>
+        <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">term</span> <span class="o">==</span> <span class="s2">"Fall 2025"</span><span class="p">))</span>
+    <span class="n">accepted_statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">p_id</span><span class="p">))</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">and_</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">term</span> <span class="o">==</span> <span class="s2">"Fall 2025"</span><span class="p">,</span>
+            <span class="n">Applicant</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s2">"Accepted"</span><span class="p">))</span>
+
+    <span class="n">total_count</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="n">total_statement</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span>
+    <span class="n">accepted_count</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="n">accepted_statement</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span>
+
+    <span class="c1"># Avoid dividing by zero if no Fall 2025 rows exist.</span>
+    <span class="k">if</span> <span class="n">total_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">accepted_count</span> <span class="o">/</span> <span class="n">total_count</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="question_8">
+<a class="viewcode-back" href="../../../api/orm_queries.html#module_4.src.orm_queries.question_8">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">question_8</span><span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="n">Session</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Count qualifying applicants by searching the original program text."""</span>
+
+    <span class="n">statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">p_id</span><span class="p">))</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">and_</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">term</span> <span class="o">==</span> <span class="s2">"Fall 2026"</span><span class="p">,</span>
+            <span class="n">Applicant</span><span class="o">.</span><span class="n">degree</span> <span class="o">==</span> <span class="s2">"PhD"</span><span class="p">,</span>
+            <span class="n">Applicant</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s2">"Accepted"</span><span class="p">,</span>
+            <span class="n">Applicant</span><span class="o">.</span><span class="n">program</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="s2">"</span><span class="si">%c</span><span class="s2">omputer science%"</span><span class="p">),</span>
+            <span class="n">raw_university_conditions</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">session</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="question_9">
+<a class="viewcode-back" href="../../../api/orm_queries.html#module_4.src.orm_queries.question_9">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">question_9</span><span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="n">Session</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Count the same applicants using exact LLM-standardized fields."""</span>
+
+    <span class="n">statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">p_id</span><span class="p">))</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">and_</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">term</span> <span class="o">==</span> <span class="s2">"Fall 2026"</span><span class="p">,</span>
+            <span class="n">Applicant</span><span class="o">.</span><span class="n">degree</span> <span class="o">==</span> <span class="s2">"PhD"</span><span class="p">,</span>
+            <span class="n">Applicant</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s2">"Accepted"</span><span class="p">,</span>
+            <span class="n">func</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">llm_generated_program</span><span class="p">)</span>
+            <span class="o">==</span> <span class="s2">"computer science"</span><span class="p">,</span>
+            <span class="n">llm_university_conditions</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">session</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="question_10">
+<a class="viewcode-back" href="../../../api/orm_queries.html#module_4.src.orm_queries.question_10">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">question_10</span><span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="n">Session</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Find the international percentage for accepted NYU master's rows."""</span>
+
+    <span class="n">accepted_nyu_masters</span> <span class="o">=</span> <span class="n">and_</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s2">"Accepted"</span><span class="p">,</span>
+        <span class="n">func</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">llm_generated_university</span><span class="p">)</span>
+        <span class="o">==</span> <span class="s2">"new york university"</span><span class="p">,</span>
+        <span class="n">Applicant</span><span class="o">.</span><span class="n">degree</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="s2">"Master%"</span><span class="p">))</span>
+
+    <span class="n">total_statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">p_id</span><span class="p">))</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">accepted_nyu_masters</span><span class="p">)</span>
+    <span class="n">international_statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">Applicant</span><span class="o">.</span><span class="n">p_id</span><span class="p">))</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">and_</span><span class="p">(</span>
+            <span class="n">accepted_nyu_masters</span><span class="p">,</span>
+            <span class="n">Applicant</span><span class="o">.</span><span class="n">us_or_international</span> <span class="o">==</span> <span class="s2">"International"</span><span class="p">))</span>
+
+    <span class="n">total_count</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="n">total_statement</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span>
+    <span class="n">international_count</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="n">international_statement</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span>
+
+    <span class="c1"># Avoid dividing by zero if no matching NYU rows exist.</span>
+    <span class="k">if</span> <span class="n">total_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">return</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">international_count</span> <span class="o">/</span> <span class="n">total_count</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="format_decimal">
+<a class="viewcode-back" href="../../../api/orm_queries.html#module_4.src.orm_queries.format_decimal">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">format_decimal</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">""</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Display missing results clearly and numeric results to two places."""</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"N/A"</span>
+
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">"</span></div>
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../../api/orm_queries.html#module_4.src.orm_queries.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""Open one session and run the requested ORM questions in order."""</span>
+
+    <span class="k">with</span> <span class="n">SessionLocal</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+        <span class="n">fall_2026_count</span> <span class="o">=</span> <span class="n">question_1</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+        <span class="n">american_average_gpa</span> <span class="o">=</span> <span class="n">question_4</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+        <span class="n">fall_2025_acceptance_percentage</span> <span class="o">=</span> <span class="n">question_5</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+        <span class="n">raw_text_count</span> <span class="o">=</span> <span class="n">question_8</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+        <span class="n">llm_standardized_count</span> <span class="o">=</span> <span class="n">question_9</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+        <span class="n">nyu_international_percentage</span> <span class="o">=</span> <span class="n">question_10</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+
+    <span class="n">count_difference</span> <span class="o">=</span> <span class="n">llm_standardized_count</span> <span class="o">-</span> <span class="n">raw_text_count</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"1. Fall 2026 applicant count: </span><span class="si">{</span><span class="n">fall_2026_count</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"4. American Fall 2026 average GPA: </span><span class="si">{</span><span class="n">format_decimal</span><span class="p">(</span><span class="n">american_average_gpa</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"5. Fall 2025 acceptance percentage: </span><span class="si">{</span><span class="n">format_decimal</span><span class="p">(</span><span class="n">fall_2025_acceptance_percentage</span><span class="p">,</span><span class="w"> </span><span class="s1">'%'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"8. Raw-text match count: </span><span class="si">{</span><span class="n">raw_text_count</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"9. LLM-standardized match count: </span><span class="si">{</span><span class="n">llm_standardized_count</span><span class="si">}</span><span class="s2"> LLM count minus raw-text count: </span><span class="si">{</span><span class="n">count_difference</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"10. International percentage among accepted NYU master's applicants: </span><span class="si">{</span><span class="n">format_decimal</span><span class="p">(</span><span class="n">nyu_international_percentage</span><span class="p">,</span><span class="w"> </span><span class="s1">'%'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Geunyong Son.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

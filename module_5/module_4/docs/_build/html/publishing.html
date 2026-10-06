@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Build and publish documentation &#8212; GradCafe application documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=f46eefca"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="/publishing.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Testing guide" href="testing.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="build-and-publish-documentation">
+<h1>Build and publish documentation<a class="headerlink" href="#build-and-publish-documentation" title="Link to this heading">¶</a></h1>
+<section id="local-build">
+<h2>Local build<a class="headerlink" href="#local-build" title="Link to this heading">¶</a></h2>
+<p>Install <code class="docutils literal notranslate"><span class="pre">module_4/requirements.txt</span></code> and run from the repository root:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>sphinx<span class="w"> </span>-b<span class="w"> </span>html<span class="w"> </span>-W<span class="w"> </span>--keep-going<span class="w"> </span>module_4/docs<span class="w"> </span>module_4/docs/_build/html
+</pre></div>
+</div>
+<p>Open <code class="docutils literal notranslate"><span class="pre">module_4/docs/_build/html/index.html</span></code>. <code class="docutils literal notranslate"><span class="pre">-W</span></code> makes warnings fail the
+build, including broken autodoc imports. <code class="docutils literal notranslate"><span class="pre">_build</span></code> is ignored by Git; commit
+the Sphinx source and configuration.</p>
+<p><code class="docutils literal notranslate"><span class="pre">conf.py</span></code> enables autodoc and links to highlighted Python source with viewcode.
+It imports the real Module 4 modules under
+temporary documentation-only environment settings. During those imports it
+bypasses the local environment-file check and disables dotenv loading. It
+does not read private credentials, create <code class="docutils literal notranslate"><span class="pre">.env</span></code>, connect to PostgreSQL,
+start Flask, or perform ETL. Optional Selenium and BeautifulSoup imports are
+mocked for the earlier Module 2 API pages.</p>
+</section>
+<section id="read-the-docs-integration">
+<h2>Read the Docs integration<a class="headerlink" href="#read-the-docs-integration" title="Link to this heading">¶</a></h2>
+<p>The repository remote is
+<code class="docutils literal notranslate"><span class="pre">git&#64;github.com:SleepyBoar12/jhu_software_concepts.git</span></code>. Read the Docs uses
+<code class="docutils literal notranslate"><span class="pre">.readthedocs.yaml</span></code> at the repository root. It installs
+<code class="docutils literal notranslate"><span class="pre">module_4/requirements.txt</span></code> with Python 3.14 on Ubuntu 24.04 and builds
+<code class="docutils literal notranslate"><span class="pre">module_4/docs/conf.py</span></code> with warnings treated as errors.</p>
+<ol class="arabic simple">
+<li><p>Commit and push the documentation sources and <code class="docutils literal notranslate"><span class="pre">.readthedocs.yaml</span></code> to
+<code class="docutils literal notranslate"><span class="pre">main</span></code>. The repository must be public for the community hosting service.</p></li>
+<li><p>Sign in at <a class="reference external" href="https://app.readthedocs.org/">Read the Docs</a>.</p></li>
+<li><p>Add a project and import the GitHub repository, or enter the public
+repository URL manually if GitHub is not connected.</p></li>
+<li><p>Set the default branch to <code class="docutils literal notranslate"><span class="pre">main</span></code>. Read the Docs discovers the root
+configuration file and builds the <code class="docutils literal notranslate"><span class="pre">latest</span></code> version.</p></li>
+<li><p>Confirm the build succeeds and use <strong>View docs</strong> to open its public URL.
+Add that exact URL to the repository README.</p></li>
+</ol>
+<p>Enable the repository webhook/integration so new commits trigger Read the Docs
+builds. If no webhook is connected, use the project’s <strong>Build version</strong> control
+after a push. <code class="docutils literal notranslate"><span class="pre">.github/workflows/documentation.yml</span></code> independently checks
+documentation builds on pull requests and pushes to <code class="docutils literal notranslate"><span class="pre">main</span></code>; a manual
+<strong>Run workflow</strong> is also available. No database service or application secrets
+are required to build docs. See
+<a class="reference external" href="https://docs.readthedocs.com/platform/stable/intro/sphinx.html">the Read the Docs Sphinx guide</a>
+and <a class="reference external" href="https://docs.readthedocs.com/platform/stable/config-file/v2.html">configuration reference</a>.</p>
+</section>
+<section id="updating-api-pages">
+<h2>Updating API pages<a class="headerlink" href="#updating-api-pages" title="Link to this heading">¶</a></h2>
+<p>API pages use <code class="docutils literal notranslate"><span class="pre">automodule</span></code> directives, so function signatures and docstrings
+are refreshed from Python when Sphinx runs. Update the surrounding examples
+and architecture/testing guides whenever behavior changes. The scraper and
+cleaner pages reference their existing <code class="docutils literal notranslate"><span class="pre">module_2</span></code> locations. If they move
+into Module 4 later, update those import paths and the architecture guide.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">GradCafe Application</a></h1>
+
+
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Build and publish documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#local-build">Local build</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#read-the-docs-integration">Read the Docs integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#updating-api-pages">Updating API pages</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="testing.html" title="previous chapter">Testing guide</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Geunyong Son.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/publishing.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

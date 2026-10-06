@@ -1,0 +1,20 @@
+Module 4 verification — 2026-10-05
+
+Run from module_4 with PostgreSQL available:
+pytest -m "web or buttons or analysis or db or integration" --require-postgres
+
+79 passed in 1.01s; no skips.
+
+Name                          Stmts   Miss  Cover
+-------------------------------------------------
+module_4/src/__init__.py          0      0   100%
+module_4/src/database.py         23      0   100%
+module_4/src/flask_app.py       127      0   100%
+module_4/src/load_data.py        93      0   100%
+module_4/src/models.py           43      0   100%
+module_4/src/orm_queries.py      56      0   100%
+module_4/src/query_data.py       57      0   100%
+-------------------------------------------------
+TOTAL                           399      0   100%
+
+Sphinx HTML: built successfully with -W --keep-going.

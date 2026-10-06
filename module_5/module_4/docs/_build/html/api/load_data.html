@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>load_data.py — validation and loading &#8212; GradCafe application documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=f46eefca"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="/api/load_data.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="query_data.py — SQL analysis" href="query_data.html" />
+    <link rel="prev" title="clean.py — transformation" href="clean.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="load-data-py-validation-and-loading">
+<h1>load_data.py — validation and loading<a class="headerlink" href="#load-data-py-validation-and-loading" title="Link to this heading">¶</a></h1>
+<p>Location: <code class="docutils literal notranslate"><span class="pre">module_4/src/load_data.py</span></code>. Use <code class="docutils literal notranslate"><span class="pre">load_cleaned_records(records)</span></code>
+for cleaned dictionaries. <code class="docutils literal notranslate"><span class="pre">read_records(path)</span></code> instead reads JSON Lines
+and yields already prepared records for <code class="docutils literal notranslate"><span class="pre">load_records()</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">module_4.src.load_data</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_cleaned_records</span>
+
+<span class="n">summary</span> <span class="o">=</span> <span class="n">load_cleaned_records</span><span class="p">([{</span>
+    <span class="s2">"program"</span><span class="p">:</span> <span class="s2">"Computer Science, Test University"</span><span class="p">,</span>
+    <span class="s2">"date_added"</span><span class="p">:</span> <span class="s2">"Oct 03, 2026"</span><span class="p">,</span>
+    <span class="s2">"url"</span><span class="p">:</span> <span class="s2">"https://www.thegradcafe.com/result/example-1"</span><span class="p">,</span>
+    <span class="s2">"applicant_status"</span><span class="p">:</span> <span class="s2">"Accepted"</span><span class="p">,</span>
+    <span class="s2">"program_start"</span><span class="p">:</span> <span class="s2">"Fall 2026"</span><span class="p">,</span>
+    <span class="s2">"gpa"</span><span class="p">:</span> <span class="s2">"3.90"</span><span class="p">,</span>
+<span class="p">}])</span>
+</pre></div>
+</div>
+<p>Rows are batched in groups of 1,000. Table creation and upserts happen in the
+same transaction. Invalid required fields, dates, and non-finite scores raise
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code>. Missing files raise <code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code>. A repeated URL uses
+the existing row; see <a class="reference internal" href="../architecture.html"><span class="doc">Architecture</span></a> for the upsert contract.</p>
+<dl class="py function" id="module-module_4.src.load_data">
+<dt class="sig sig-object py" id="module_4.src.load_data.required_text">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.load_data.</span></span><span class="sig-name descname"><span class="pre">required_text</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">record</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_number</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/load_data.html#required_text"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.load_data.required_text" title="Link to this definition">¶</a></dt>
+<dd><p>Return a required text value or stop when it is missing.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.load_data.optional_text">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.load_data.</span></span><span class="sig-name descname"><span class="pre">optional_text</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">record</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/load_data.html#optional_text"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.load_data.optional_text" title="Link to this definition">¶</a></dt>
+<dd><p>Convert missing or blank optional text to Python None/SQL NULL.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.load_data.optional_decimal">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.load_data.</span></span><span class="sig-name descname"><span class="pre">optional_decimal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">record</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_number</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/load_data.html#optional_decimal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.load_data.optional_decimal" title="Link to this definition">¶</a></dt>
+<dd><p>Convert an optional numeric string into a PostgreSQL-safe number.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.load_data.prepare_record">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.load_data.</span></span><span class="sig-name descname"><span class="pre">prepare_record</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">record</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_number</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/load_data.html#prepare_record"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.load_data.prepare_record" title="Link to this definition">¶</a></dt>
+<dd><p>Validate one JSON object and match its values to the SQL columns.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.load_data.read_records">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.load_data.</span></span><span class="sig-name descname"><span class="pre">read_records</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/load_data.html#read_records"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.load_data.read_records" title="Link to this definition">¶</a></dt>
+<dd><p>Read and validate the newline-delimited JSON file one line at a time.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.load_data.make_batches">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.load_data.</span></span><span class="sig-name descname"><span class="pre">make_batches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">records</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/load_data.html#make_batches"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.load_data.make_batches" title="Link to this definition">¶</a></dt>
+<dd><p>Group applicant records into smaller lists for database insertion.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.load_data.load_records">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.load_data.</span></span><span class="sig-name descname"><span class="pre">load_records</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">records</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/load_data.html#load_records"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.load_data.load_records" title="Link to this definition">¶</a></dt>
+<dd><p>Upsert prepared records and return a summary of database changes.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.load_data.load_cleaned_records">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.load_data.</span></span><span class="sig-name descname"><span class="pre">load_cleaned_records</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">records</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/load_data.html#load_cleaned_records"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.load_data.load_cleaned_records" title="Link to this definition">¶</a></dt>
+<dd><p>Validate cleaned dictionaries and upsert them into PostgreSQL.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_4.src.load_data.main">
+<span class="sig-prename descclassname"><span class="pre">module_4.src.load_data.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_4/src/load_data.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_4.src.load_data.main" title="Link to this definition">¶</a></dt>
+<dd><p>Load the saved LLM-extended JSON file into PostgreSQL.</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GradCafe Application</a></h1>
+
+
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="scrape.html">scrape.py — extraction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="clean.html">clean.py — transformation</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">load_data.py — validation and loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="query_data.html">query_data.py — SQL analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="flask_app.html">flask_app.py — web routes and analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">models.py — database mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orm_queries.html">orm_queries.py — ORM analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../publishing.html">Build and publish documentation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API reference</a><ul>
+      <li>Previous: <a href="clean.html" title="previous chapter">clean.py — transformation</a></li>
+      <li>Next: <a href="query_data.html" title="next chapter">query_data.py — SQL analysis</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Geunyong Son.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/api/load_data.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Testing guide &#8212; GradCafe application documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=f46eefca"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="/testing.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Build and publish documentation" href="publishing.html" />
+    <link rel="prev" title="orm_queries.py — ORM analysis" href="api/orm_queries.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="testing-guide">
+<h1>Testing guide<a class="headerlink" href="#testing-guide" title="Link to this heading">¶</a></h1>
+<section id="run-the-suite">
+<h2>Run the suite<a class="headerlink" href="#run-the-suite" title="Link to this heading">¶</a></h2>
+<p>All Module 4 test code lives in <code class="docutils literal notranslate"><span class="pre">module_4/tests</span></code>. Configure PostgreSQL and
+<code class="docutils literal notranslate"><span class="pre">module_4/src/.env</span></code> as described in <a class="reference internal" href="overview.html"><span class="doc">Overview and setup</span></a>. Run from the repository
+root after activating the virtual environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>module_4/tests<span class="w"> </span>-v<span class="w"> </span>--require-postgres
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">pytest.ini</span></code> enables strict markers, measures <code class="docutils literal notranslate"><span class="pre">module_4.src</span></code>, reports
+missing lines, and requires <strong>100% statement coverage</strong> for the full suite.
+The current suite contains 65 test cases, including parametrized cases.
+Coverage alone does not prove that a real database test executed:
+<code class="docutils literal notranslate"><span class="pre">--require-postgres</span></code> fails setup when a connection or schema creation fails.
+Without this option, unavailable database tests are skipped for local runs.</p>
+</section>
+<section id="markers-and-selection">
+<h2>Markers and selection<a class="headerlink" href="#markers-and-selection" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Registered markers</span><a class="headerlink" href="#id1" title="Link to this table">¶</a></caption>
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 35.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Marker</p></th>
+<th class="head"><p>Test file</p></th>
+<th class="head"><p>Scope</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">web</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">test_flask_page.py</span></code></p></td>
+<td><p>App configuration, routes, rendering, errors, and server startup.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">buttons</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">test_buttons.py</span></code></p></td>
+<td><p>Pull/update behavior, progress, and busy-state HTTP 409 responses.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">analysis</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">test_analysis.py</span></code></p></td>
+<td><p>SQL/ORM query behavior, empty results, and answer formatting.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">db</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">test_db_insert.py</span></code></p></td>
+<td><p>Validation, loading, startup settings, real inserts, and idempotence.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">integration</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">test_integration_end_to_end.py</span></code></p></td>
+<td><p>Real database flows through pull, update, rendering, and repeated pulls.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Use <code class="docutils literal notranslate"><span class="pre">--no-cov</span></code> when selecting part of the suite: the 100% requirement applies
+to all application modules, so a partial run cannot satisfy it.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>module_4/tests<span class="w"> </span>-m<span class="w"> </span>web<span class="w"> </span>--no-cov
+python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>module_4/tests<span class="w"> </span>-m<span class="w"> </span>buttons<span class="w"> </span>--no-cov
+python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>module_4/tests<span class="w"> </span>-m<span class="w"> </span>analysis<span class="w"> </span>--no-cov
+python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>module_4/tests<span class="w"> </span>-m<span class="w"> </span>db<span class="w"> </span>--no-cov<span class="w"> </span>--require-postgres
+python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>module_4/tests<span class="w"> </span>-m<span class="w"> </span>integration<span class="w"> </span>--no-cov<span class="w"> </span>--require-postgres
+python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>module_4/tests<span class="w"> </span>-m<span class="w"> </span><span class="s2">"web or buttons"</span><span class="w"> </span>--no-cov
+python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>module_4/tests/test_buttons.py::test_pull_data_when_busy<span class="w"> </span>--no-cov
+</pre></div>
+</div>
+</section>
+<section id="expected-routes-and-page-selectors">
+<h2>Expected routes and page selectors<a class="headerlink" href="#expected-routes-and-page-selectors" title="Link to this heading">¶</a></h2>
+<p>The Flask client calls routes directly and checks response status and rendered
+text. Existing page tests look for <code class="docutils literal notranslate"><span class="pre">Pull</span> <span class="pre">Data</span></code>, <code class="docutils literal notranslate"><span class="pre">Update</span> <span class="pre">Analysis</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Analysis</span></code>, and <code class="docutils literal notranslate"><span class="pre">Answer:</span></code>. Percentage tests expect strings such as
+<code class="docutils literal notranslate"><span class="pre">12.30%</span></code>. These are Flask response tests; they do not execute browser
+JavaScript or use Selenium.</p>
+<p>The template also provides these stable selectors for manual or future browser
+checks:</p>
+<table class="docutils align-default" id="id2">
+<caption><span class="caption-text">UI contract</span><a class="headerlink" href="#id2" title="Link to this table">¶</a></caption>
+<colgroup>
+<col style="width: 40.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Selector</p></th>
+<th class="head"><p>Expected behavior</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">#pull-data-form</span></code> / <code class="docutils literal notranslate"><span class="pre">#pull-data-button</span></code></p></td>
+<td><p>Submit POST <code class="docutils literal notranslate"><span class="pre">/pull-data</span></code>; the button is disabled while running.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">#update-analysis-form</span></code> / <code class="docutils literal notranslate"><span class="pre">#update-analysis-button</span></code></p></td>
+<td><p>Submit POST <code class="docutils literal notranslate"><span class="pre">/update-analysis</span></code>; the button is disabled while running.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">#pull-status-panel</span></code></p></td>
+<td><p>Hidden in the idle state; announces progress with <code class="docutils literal notranslate"><span class="pre">role=&quot;status&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">#pull-status-title</span></code> / <code class="docutils literal notranslate"><span class="pre">#pull-status-message</span></code></p></td>
+<td><p>Display the worker’s current title and message.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">#analysis-status-panel</span></code></p></td>
+<td><p>Announces that an analysis update is running.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">.analysis-card</span></code> / <code class="docutils literal notranslate"><span class="pre">.answer-label</span></code> / <code class="docutils literal notranslate"><span class="pre">.answer-grid</span></code></p></td>
+<td><p>Display each analysis question, <code class="docutils literal notranslate"><span class="pre">Answer:</span></code>, and its result values.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">.error-panel[role=&quot;alert&quot;]</span></code></p></td>
+<td><p>Display an analysis database error with HTTP 500.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Both GET <code class="docutils literal notranslate"><span class="pre">/</span></code> and GET <code class="docutils literal notranslate"><span class="pre">/analysis</span></code> render analysis. GET <code class="docutils literal notranslate"><span class="pre">/pull-status</span></code>
+returns status JSON. Busy POST requests return HTTP 409 and must not start a
+second worker or run a new analysis.</p>
+</section>
+<section id="fixtures-and-doubles">
+<h2>Fixtures and doubles<a class="headerlink" href="#fixtures-and-doubles" title="Link to this heading">¶</a></h2>
+<p>Shared fixtures are in <code class="docutils literal notranslate"><span class="pre">tests/conftest.py</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">valid_applicant</span></code> supplies a complete, deterministic input record.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fake_pg_environment</span></code> sets predictable <code class="docutils literal notranslate"><span class="pre">PG*</span></code> values for mocked tests.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mock_database</span></code> replaces <code class="docutils literal notranslate"><span class="pre">psycopg.connect</span></code> with connection/cursor mocks,
+including their context managers; it does not open PostgreSQL.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">run_module</span></code> exercises real command-line startup through <code class="docutils literal notranslate"><span class="pre">runpy</span></code> and
+restores the imported module afterwards.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">app</span></code> replaces the session boundary and analysis builder, enables Flask
+testing, and supplies fixed answers; <code class="docutils literal notranslate"><span class="pre">client</span></code> returns its test client.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">set_pull_state</span></code> isolates the shared status dictionary for each test.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">isolated_database</span></code> creates a uniquely named PostgreSQL schema, redirects
+loader connections through its search path, creates the real applicants
+table, and drops that schema during teardown.</p></li>
+</ul>
+<p>Button and database tests replace <code class="docutils literal notranslate"><span class="pre">Thread</span></code> with <code class="docutils literal notranslate"><span class="pre">ImmediateThread</span></code>, which
+runs the worker synchronously. They monkeypatch <code class="docutils literal notranslate"><span class="pre">run_pull_pipeline</span></code> with
+either a fixed summary or a call to the real loader using fixed records.
+No test needs access to GradCafe or an LLM service.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">integration_client</span></code> fixture in <code class="docutils literal notranslate"><span class="pre">test_integration_end_to_end.py</span></code> binds
+real SQLAlchemy sessions to the isolated schema and leaves the analysis code
+active. It verifies inserted data, formatted answers, and overlapping pulls
+without duplicate URLs. The database role must be able to create and drop
+schemas in the test database.</p>
+</section>
+<section id="github-actions">
+<h2>GitHub Actions<a class="headerlink" href="#github-actions" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">.github/workflows/tests.yml</span></code> creates a PostgreSQL 16 service with a health
+check, maps port 5432, supplies matching <code class="docutils literal notranslate"><span class="pre">PG*</span></code> settings, creates an empty
+<code class="docutils literal notranslate"><span class="pre">src/.env</span></code>, and runs <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pytest</span> <span class="pre">tests</span> <span class="pre">-v</span> <span class="pre">--require-postgres</span></code> from
+<code class="docutils literal notranslate"><span class="pre">module_4</span></code>. The service uses a temporary <code class="docutils literal notranslate"><span class="pre">test_db</span></code> database. The full run
+must include database and integration tests and meet the coverage threshold.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">GradCafe Application</a></h1>
+
+
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API reference</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Testing guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#run-the-suite">Run the suite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#markers-and-selection">Markers and selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#expected-routes-and-page-selectors">Expected routes and page selectors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#fixtures-and-doubles">Fixtures and doubles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#github-actions">GitHub Actions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="publishing.html">Build and publish documentation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="api/orm_queries.html" title="previous chapter">orm_queries.py — ORM analysis</a></li>
+      <li>Next: <a href="publishing.html" title="next chapter">Build and publish documentation</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Geunyong Son.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/testing.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

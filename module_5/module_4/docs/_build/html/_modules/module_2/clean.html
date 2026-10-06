@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>module_2.clean &#8212; GradCafe application documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=f46eefca"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="https://sleepyboar12.github.io/jhu_software_concepts/_modules/module_2/clean.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for module_2.clean</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">bs4</span><span class="w"> </span><span class="kn">import</span> <span class="n">BeautifulSoup</span> <span class="k">as</span> <span class="n">bs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+<span class="c1">### I used GPT to help create after specifying parts and bit of the requirement</span>
+<span class="sd">"""</span>
+<span class="sd">Convert the GradCafe HTML pages saved by scrape.py into structured JSON records.</span>
+
+<span class="sd">Each applicant is displayed using more than one table row:</span>
+<span class="sd">    1. A main row containing the university, program, degree, date, decision, and URL.</span>
+<span class="sd">    2. A details row containing badges such as the term, student type, GRE, and GPA.</span>
+<span class="sd">    3. An optional row containing the applicant's comments.</span>
+
+<span class="sd">The parser groups those rows together before creating one dictionary per applicant.</span>
+<span class="sd">"""</span>
+
+
+<span class="c1">### Build paths relative to this file so the script works whether it is run from the</span>
+<span class="c1">### repository root or from inside module_2.</span>
+<span class="c1">### ALL PARAMETERS ARE WRITTEN HERE</span>
+<span class="n">folder_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+<span class="c1"># Write "test" or "cleaned" in "location" depending on where in the module </span>
+<span class="c1"># you want the output to go</span>
+<span class="n">location_from</span> <span class="o">=</span> <span class="s2">"collected"</span>
+<span class="n">location_to</span> <span class="o">=</span> <span class="s2">"cleaned"</span>
+<span class="n">html_path</span> <span class="o">=</span> <span class="n">folder_dir</span> <span class="o">/</span><span class="n">location_from</span>
+<span class="n">output_path</span> <span class="o">=</span> <span class="n">folder_dir</span> <span class="o">/</span><span class="n">location_to</span>
+<span class="n">json_file</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="s2">"applicant_data.json"</span>
+
+<span class="c1"># helper funtion made by RE to "pick out" the GRE scores</span>
+<div class="viewcode-block" id="_get_badge_value">
+<a class="viewcode-back" href="../../api/clean.html#module_2.clean._get_badge_value">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_badge_value</span><span class="p">(</span><span class="n">badges</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Return the value portion of a badge such as 'GPA 3.57'."""</span>
+    <span class="k">for</span> <span class="n">badge</span> <span class="ow">in</span> <span class="n">badges</span><span class="p">:</span>
+        <span class="c1"># GRE, GRE V, and GRE AW begin similarly. A pattern lets the caller make</span>
+        <span class="c1"># an exact distinction when checking the general GRE score.</span>
+        <span class="k">if</span> <span class="n">pattern</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">badge</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">badge</span><span class="o">.</span><span class="n">removeprefix</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">badge</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">badge</span><span class="o">.</span><span class="n">removeprefix</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span>
+
+    <span class="c1"># For the NA, returning None</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<span class="c1"># helper function use BeautifulSoup to get HTML</span>
+<div class="viewcode-block" id="_parse_html_file">
+<a class="viewcode-back" href="../../api/clean.html#module_2.clean._parse_html_file">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_html_file</span><span class="p">(</span><span class="n">html_file</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Extract all applicant records from one saved GradCafe HTML file."""</span>
+    <span class="n">html</span> <span class="o">=</span> <span class="n">html_file</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+    <span class="n">soup</span> <span class="o">=</span> <span class="n">bs</span><span class="p">(</span><span class="n">html</span><span class="p">,</span> <span class="s2">"html.parser"</span><span class="p">)</span>
+
+    <span class="c1"># The admissions records are inside the table body. Returning an empty list</span>
+    <span class="c1"># keeps one malformed or incomplete page from crashing the whole collection.</span>
+    <span class="n">table_body</span> <span class="o">=</span> <span class="n">soup</span><span class="o">.</span><span class="n">select_one</span><span class="p">(</span><span class="s2">"main table tbody"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">table_body</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: no results table found in </span><span class="si">{</span><span class="n">html_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="c1"># recursive=False selects only rows that directly belong to this table body.</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="n">table_body</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s2">"tr"</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">applicants</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">while</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">):</span>
+        <span class="n">main_row</span> <span class="o">=</span> <span class="n">rows</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+
+        <span class="c1"># A /result/ link uniquely identifies the first row of an applicant entry.</span>
+        <span class="c1"># Rows without this link are detail, comment, advertisement, or empty rows.</span>
+        <span class="n">result_link</span> <span class="o">=</span> <span class="n">main_row</span><span class="o">.</span><span class="n">select_one</span><span class="p">(</span><span class="s1">'a[href^="/result/"]'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">result_link</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">continue</span>
+
+        <span class="n">cells</span> <span class="o">=</span> <span class="n">main_row</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s2">"td"</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: incomplete applicant row in </span><span class="si">{</span><span class="n">html_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># The second cell contains two spans: program name followed by degree type.</span>
+        <span class="n">program_parts</span> <span class="o">=</span> <span class="n">cells</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s2">"span"</span><span class="p">)</span>
+        <span class="n">program_name</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">program_parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_text</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">program_parts</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">degree</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">program_parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get_text</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">program_parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+
+        <span class="n">university</span> <span class="o">=</span> <span class="n">cells</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_text</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">date_added</span> <span class="o">=</span> <span class="n">cells</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">get_text</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Split strings such as "Accepted on Sep 09" into a status and date.</span>
+        <span class="c1"># Doable because it is a standardized format</span>
+        <span class="n">decision_text</span> <span class="o">=</span> <span class="n">cells</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">get_text</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">applicant_status</span><span class="p">,</span> <span class="n">separator</span><span class="p">,</span> <span class="n">decision_date</span> <span class="o">=</span> <span class="n">decision_text</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">" on "</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">separator</span><span class="p">:</span>
+            <span class="n">decision_date</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># The HTML contains /result/1020480. Extract the ID and use the known</span>
+        <span class="c1"># GradCafe result route to create a complete applicant URL.</span>
+        <span class="n">result_id</span> <span class="o">=</span> <span class="n">result_link</span><span class="p">[</span><span class="s2">"href"</span><span class="p">]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">"/"</span><span class="p">)</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"/"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">applicant_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"https://www.thegradcafe.com/result/</span><span class="si">{</span><span class="n">result_id</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="c1"># Everything after the main row belongs to this applicant until another</span>
+        <span class="c1"># row with a /result/ link begins the next applicant entry.</span>
+        <span class="n">badges</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">comments</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">while</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">):</span>
+            <span class="n">extra_row</span> <span class="o">=</span> <span class="n">rows</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">extra_row</span><span class="o">.</span><span class="n">select_one</span><span class="p">(</span><span class="s1">'a[href^="/result/"]'</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">break</span>
+
+            <span class="n">comment</span> <span class="o">=</span> <span class="n">extra_row</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"p"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">comment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">comment_text</span> <span class="o">=</span> <span class="n">comment</span><span class="o">.</span><span class="n">get_text</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">comment_text</span><span class="p">:</span>
+                    <span class="n">comments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">comment_text</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># stripped_strings returns the visible text of the detail badges.</span>
+                <span class="n">badges</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">extra_row</span><span class="o">.</span><span class="n">stripped_strings</span><span class="p">)</span>
+
+            <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># Search the badges for a term formatted like "Fall 2026" or "Spring 2027".</span>
+        <span class="n">program_start</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">badge</span> <span class="k">for</span> <span class="n">badge</span> <span class="ow">in</span> <span class="n">badges</span>
+                <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(?:Fall|Spring) \d</span><span class="si">{4}</span><span class="s2">"</span><span class="p">,</span> <span class="n">badge</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">student_type</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">badge</span> <span class="k">for</span> <span class="n">badge</span> <span class="ow">in</span> <span class="n">badges</span>
+                <span class="k">if</span> <span class="n">badge</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"International"</span><span class="p">,</span> <span class="s2">"American"</span><span class="p">,</span> <span class="s2">"Other"</span><span class="p">}</span>
+            <span class="p">),</span>
+            <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1">#LLM_hosting not working so I changed the field in "program_name" to just "program"</span>
+        <span class="n">applicant</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"program"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">program_name</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">university</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="s2">"comments"</span><span class="p">:</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">comments</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">"date_added"</span><span class="p">:</span> <span class="n">date_added</span><span class="p">,</span>
+            <span class="s2">"url"</span><span class="p">:</span> <span class="n">applicant_url</span><span class="p">,</span>
+            <span class="s2">"applicant_status"</span><span class="p">:</span> <span class="n">applicant_status</span><span class="p">,</span>
+            <span class="c1"># Only fill the date column that agrees with the decision status.</span>
+            <span class="s2">"acceptance_date"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="n">decision_date</span> <span class="k">if</span> <span class="n">applicant_status</span> <span class="o">==</span> <span class="s2">"Accepted"</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">),</span>
+            <span class="s2">"rejection_date"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="n">decision_date</span> <span class="k">if</span> <span class="n">applicant_status</span> <span class="o">==</span> <span class="s2">"Rejected"</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">),</span>
+            <span class="s2">"program_start"</span><span class="p">:</span> <span class="n">program_start</span><span class="p">,</span>
+            <span class="s2">"student_type"</span><span class="p">:</span> <span class="n">student_type</span><span class="p">,</span>
+            <span class="c1"># The pattern prevents "GRE V" and "GRE AW" from being mistaken for</span>
+            <span class="c1"># the general quantitative GRE badge.</span>
+            <span class="s2">"gre_score"</span><span class="p">:</span> <span class="n">_get_badge_value</span><span class="p">(</span>
+                <span class="n">badges</span><span class="p">,</span>
+                <span class="s2">"GRE "</span><span class="p">,</span>
+                <span class="sa">r</span><span class="s2">"GRE \d+(?:\.\d+)?"</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="s2">"gre_v_score"</span><span class="p">:</span> <span class="n">_get_badge_value</span><span class="p">(</span><span class="n">badges</span><span class="p">,</span> <span class="s2">"GRE V "</span><span class="p">),</span>
+            <span class="s2">"degree"</span><span class="p">:</span> <span class="n">degree</span><span class="p">,</span>
+            <span class="s2">"gpa"</span><span class="p">:</span> <span class="n">_get_badge_value</span><span class="p">(</span><span class="n">badges</span><span class="p">,</span> <span class="s2">"GPA "</span><span class="p">),</span>
+            <span class="s2">"gre_aw"</span><span class="p">:</span> <span class="n">_get_badge_value</span><span class="p">(</span><span class="n">badges</span><span class="p">,</span> <span class="s2">"GRE AW "</span><span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="n">applicants</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">applicant</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">applicants</span></div>
+
+
+<span class="c1">### The main function that brings everything together</span>
+<div class="viewcode-block" id="clean_data">
+<a class="viewcode-back" href="../../api/clean.html#module_2.clean.clean_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">clean_data</span><span class="p">(</span><span class="n">input_directory</span><span class="o">=</span><span class="n">html_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Parse every data_*.html file from one directory."""</span>
+    <span class="n">input_directory</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">input_directory</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">input_directory</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Collected HTML folder does not exist: </span><span class="si">{</span><span class="n">input_directory</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Sort by numbers in the filename so data_2 comes before data_10.</span>
+    <span class="n">html_files</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+        <span class="n">input_directory</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"data_*.html"</span><span class="p">),</span>
+        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">stem</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"_"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">html_files</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"No data_*.html files found in: </span><span class="si">{</span><span class="n">input_directory</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+
+    <span class="n">all_applicants</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">html_file</span> <span class="ow">in</span> <span class="n">html_files</span><span class="p">:</span>
+        <span class="n">all_applicants</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_parse_html_file</span><span class="p">(</span><span class="n">html_file</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">all_applicants</span></div>
+
+
+<span class="c1">### Saving the data into the "cleaned" folder</span>
+<div class="viewcode-block" id="save_data">
+<a class="viewcode-back" href="../../api/clean.html#module_2.clean.save_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">output_file</span><span class="o">=</span><span class="n">json_file</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Save applicant dictionaries as readable UTF-8 JSON, in "cleaned" folder."""</span>
+    <span class="n">output_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_file</span><span class="p">)</span>
+    <span class="n">output_file</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">output_file</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
+        <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="c1">### Getting a dictionary out of the JSON file</span>
+<div class="viewcode-block" id="load_data">
+<a class="viewcode-back" href="../../api/clean.html#module_2.clean.load_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_data</span><span class="p">(</span><span class="n">input_file</span><span class="o">=</span><span class="n">json_file</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Load and return applicant dictionaries from the generated JSON file."""</span>
+    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">input_file</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">cleaned_applicants</span> <span class="o">=</span> <span class="n">clean_data</span><span class="p">()</span>
+    <span class="n">save_data</span><span class="p">(</span><span class="n">cleaned_applicants</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Saved </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cleaned_applicants</span><span class="p">)</span><span class="si">}</span><span class="s2"> records to </span><span class="si">{</span><span class="n">json_file</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">GradCafe Application</a></h1>
+
+
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../publishing.html">Build and publish documentation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Geunyong Son.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,189 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>clean.py — transformation &mdash; GradCafe application documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+    <link rel="canonical" href="/api/clean.html" />
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f46eefca"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="load_data.py — validation and loading" href="load_data.html" />
+    <link rel="prev" title="scrape.py — extraction" href="scrape.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            GradCafe Application
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="scrape.html">scrape.py — extraction</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">clean.py — transformation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module_2.clean._get_badge_value"><code class="docutils literal notranslate"><span class="pre">_get_badge_value()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module_2.clean._parse_html_file"><code class="docutils literal notranslate"><span class="pre">_parse_html_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module_2.clean.clean_data"><code class="docutils literal notranslate"><span class="pre">clean_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module_2.clean.save_data"><code class="docutils literal notranslate"><span class="pre">save_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module_2.clean.load_data"><code class="docutils literal notranslate"><span class="pre">load_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="load_data.html">load_data.py — validation and loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="query_data.html">query_data.py — SQL analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="flask_app.html">flask_app.py — web routes and analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">models.py — database mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orm_queries.html">orm_queries.py — ORM analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../operations.html">Operational notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../publishing.html">Build and publish documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">GradCafe Application</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API reference</a></li>
+      <li class="breadcrumb-item active">clean.py — transformation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/clean.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="clean-py-transformation">
+<h1>clean.py — transformation<a class="headerlink" href="#clean-py-transformation" title="Link to this heading"></a></h1>
+<p>Location: <code class="docutils literal notranslate"><span class="pre">module_2/clean.py</span></code>. The cleaner groups applicant main, details,
+and comment rows from saved <code class="docutils literal notranslate"><span class="pre">data_*.html</span></code> pages. It extracts badges for term,
+nationality, GRE, and GPA, and returns dictionaries with source field names.
+<code class="docutils literal notranslate"><span class="pre">save_data()</span></code> writes a JSON array, rather than JSON Lines.</p>
+<p>BeautifulSoup is installed with the Module-4 requirements. Importing the
+cleaner for documentation does not read or process any HTML.</p>
+<p id="module-module_2.clean">Convert the GradCafe HTML pages saved by scrape.py into structured JSON records.</p>
+<dl class="simple">
+<dt>Each applicant is displayed using more than one table row:</dt><dd><ol class="arabic simple">
+<li><p>A main row containing the university, program, degree, date, decision, and URL.</p></li>
+<li><p>A details row containing badges such as the term, student type, GRE, and GPA.</p></li>
+<li><p>An optional row containing the applicant’s comments.</p></li>
+</ol>
+</dd>
+</dl>
+<p>The parser groups those rows together before creating one dictionary per applicant.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="module_2.clean._get_badge_value">
+<span class="sig-prename descclassname"><span class="pre">module_2.clean.</span></span><span class="sig-name descname"><span class="pre">_get_badge_value</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">badges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_2/clean.html#_get_badge_value"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_2.clean._get_badge_value" title="Link to this definition"></a></dt>
+<dd><p>Return the value portion of a badge such as ‘GPA 3.57’.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_2.clean._parse_html_file">
+<span class="sig-prename descclassname"><span class="pre">module_2.clean.</span></span><span class="sig-name descname"><span class="pre">_parse_html_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">html_file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_2/clean.html#_parse_html_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_2.clean._parse_html_file" title="Link to this definition"></a></dt>
+<dd><p>Extract all applicant records from one saved GradCafe HTML file.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_2.clean.clean_data">
+<span class="sig-prename descclassname"><span class="pre">module_2.clean.</span></span><span class="sig-name descname"><span class="pre">clean_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_directory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">html_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_2/clean.html#clean_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_2.clean.clean_data" title="Link to this definition"></a></dt>
+<dd><p>Parse saved survey files in numeric page order.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input_directory</strong> – Directory containing <code class="docutils literal notranslate"><span class="pre">data_*.html</span></code> files.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of applicant dictionaries ready for enrichment or loading.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>FileNotFoundError</strong> – The directory or matching files are missing.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_2.clean.save_data">
+<span class="sig-prename descclassname"><span class="pre">module_2.clean.</span></span><span class="sig-name descname"><span class="pre">save_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">json_file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_2/clean.html#save_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_2.clean.save_data" title="Link to this definition"></a></dt>
+<dd><p>Save applicant dictionaries as readable UTF-8 JSON, in “cleaned” folder.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="module_2.clean.load_data">
+<span class="sig-prename descclassname"><span class="pre">module_2.clean.</span></span><span class="sig-name descname"><span class="pre">load_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">json_file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/module_2/clean.html#load_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#module_2.clean.load_data" title="Link to this definition"></a></dt>
+<dd><p>Load and return applicant dictionaries from the generated JSON file.</p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="scrape.html" class="btn btn-neutral float-left" title="scrape.py — extraction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="load_data.html" class="btn btn-neutral float-right" title="load_data.py — validation and loading" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Geunyong Son.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
