@@ -181,6 +181,14 @@ pydeps src --noshow -T svg -o dependency.svg \
 With `--reverse`, an arrow from A to B means A imports B. This graph focuses on
 the application modules and their shared Module 2 dependencies.
 
+## Dependency security
+
+The three Snyk findings reported for `urllib3==2.7.0` are addressed by pinning
+`urllib3==2.8.0` in both requirements files. The package metadata reads the root
+requirements file, so packaged installs also use the fixed version. See
+[the vulnerability report](SECURITY.md) for the findings, affected behavior,
+remediation, and verification results.
+
 ## Packaging and reproducibility
 
 `setup.py` installs the `module_5` application, the shared `module_2` scraper
