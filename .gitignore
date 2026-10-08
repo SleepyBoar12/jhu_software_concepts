@@ -1,7 +1,7 @@
 # Credentials and local configuration
 .env
 .env.*
-!.env.example.
+!.env.example
 .pgpass
 .pg_service.conf
 #python
@@ -15,6 +15,12 @@ __pycache__/
 # Generated Sphinx documentation
 module_4/docs/_build/
 module_4/docs/build/
+module_5/docs/_build/
+module_5/docs/build/
+
+# Generated Module-5 packaging files
+module_5/build/
+module_5/*.egg-info/
 
 # Local checkout of the published Sphinx site
 module_4/docs/site/
