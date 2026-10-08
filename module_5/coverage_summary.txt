@@ -1,0 +1,20 @@
+Module 5 verification — 2026-10-08
+
+Run from module_5 with PostgreSQL available:
+python -m pytest tests --require-postgres
+
+147 passed in 1.20s; no skips.
+
+Name                 Stmts   Miss  Cover
+--------------------------------------------------
+src/__init__.py          0      0   100%
+src/flask_app.py       162      0   100%
+src/load_data.py        98      0   100%
+src/models.py           45      0   100%
+src/orm_queries.py      72      0   100%
+src/query_data.py       71      0   100%
+--------------------------------------------------
+TOTAL                  448      0   100%
+
+Pylint: 10.00/10 for module_5/src.
+Sphinx HTML: built successfully with -W --keep-going.
