@@ -1,0 +1,20 @@
+# Both service builds use the repository root to include shared Module 2 code.
+*
+!module_6/
+module_6/*
+!module_6/__init__.py
+!module_6/src/
+module_6/src/*
+!module_6/src/__init__.py
+!module_6/src/messaging.py
+!module_6/src/db/
+!module_6/src/web/
+!module_6/src/worker/
+!module_6/src/data/
+!module_2/
+module_2/*
+!module_2/*.py
+**/.env
+**/.env.*
+**/__pycache__/
+**/*.py[cod]

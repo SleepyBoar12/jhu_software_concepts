@@ -24,3 +24,16 @@ module_5/*.egg-info/
 
 # Local checkout of the published Sphinx site
 module_4/docs/site/
+
+# Generated reports and local test caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Generated Module-6 documentation and packaging
+module_6/docs/_build/
+module_6/docs/build/
+module_6/docs/site/
+module_6/build/
+module_6/*.egg-info/

@@ -1,0 +1,51 @@
+name: Module 6 scaffold
+
+on:
+  push:
+    paths: ["module_6/**", "module_2/*.py", ".dockerignore", ".github/workflows/module_6.yml"]
+  pull_request:
+    paths: ["module_6/**", "module_2/*.py", ".dockerignore", ".github/workflows/module_6.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: module_6
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+          POSTGRES_DB: test_db
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d test_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:${{ github.run_id }}-${{ github.run_attempt }}@localhost:5432/test_db
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install --no-deps -e .
+          python -m pip check
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+      - name: Lint
+        run: python -m pylint --fail-under=10 src
+      - name: Test
+        run: python -m pytest tests --require-postgres
+      - name: Build documentation
+        run: python -m sphinx -b html -W --keep-going docs/source docs/build/html

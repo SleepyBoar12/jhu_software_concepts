@@ -1,0 +1,95 @@
+name: gradcafe-module6
+
+x-app-environment: &app-environment
+  PGHOST: db
+  PGPORT: "5432"
+  PGDATABASE: gradcafe
+  PGUSER: gradcafe
+  PGPASSWORD: ${POSTGRES_PASSWORD:-gradcafe-local}
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_USER: ${RABBITMQ_USER:-gradcafe}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-gradcafe-local}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gradcafe
+      POSTGRES_USER: gradcafe
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gradcafe-local}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./src/db/init.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gradcafe}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-gradcafe-local}
+    ports:
+      - "127.0.0.1:${AMQP_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  web:
+    image: jhu-gradcafe-web:module6
+    restart: on-failure
+    build:
+      context: ..
+      dockerfile: module_6/src/web/Dockerfile
+    environment: *app-environment
+    volumes:
+      - applicant_data:/app/module_6/src/data
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    image: jhu-gradcafe-worker:module6
+    restart: on-failure
+    build:
+      context: ..
+      dockerfile: module_6/src/worker/Dockerfile
+    environment: *app-environment
+    volumes:
+      - applicant_data:/app/module_6/src/data
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "module_6.src.worker.consumer", "--healthcheck"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+
+volumes:
+  db_data:
+  rabbitmq_data:
+  applicant_data:
